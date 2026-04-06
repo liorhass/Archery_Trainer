@@ -1,0 +1,55 @@
+package com.liorapps.videotrainer
+
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
+import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation3.runtime.NavEntry
+import androidx.navigation3.ui.NavDisplay
+import com.liorapps.videotrainer.navigation.NavKey
+import com.liorapps.videotrainer.ui.screens.MainScreen
+import com.liorapps.videotrainer.ui.screens.SettingsScreen
+import com.liorapps.videotrainer.ui.theme.VideoTrainerTheme
+
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
+        setContent {
+            VideoTrainerTheme {
+                VideoTrainerApp()
+            }
+        }
+    }
+}
+
+@Composable
+fun VideoTrainerApp(viewModel: MainViewModel = viewModel()) {
+    BackHandler(enabled = viewModel.backStack.size > 1) {
+        viewModel.navigateBack()
+    }
+
+    NavDisplay(
+        backStack = viewModel.backStack,
+        modifier = Modifier.fillMaxSize(),
+        onBack = { viewModel.navigateBack() }
+    ) { key: NavKey ->
+        when (key) {
+            NavKey.Main -> NavEntry(key) {
+                MainScreen(
+                    onNavigateToSettings = { viewModel.navigateTo(NavKey.Settings) }
+                )
+            }
+            NavKey.Settings -> NavEntry(key) {
+                SettingsScreen(
+                    onNavigateBack = { viewModel.navigateBack() }
+                )
+            }
+        }
+    }
+}

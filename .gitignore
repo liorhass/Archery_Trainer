@@ -1,0 +1,48 @@
+# Gradle files
+.gradle/
+build/
+/*/build/
+
+# IDE specific files
+.idea/
+*.iml
+.DS_Store
+
+# Local configuration
+local.properties
+
+# Build outputs
+*.apk
+*.aar
+*.ap_
+*.aab
+bundle/
+
+# Log files
+*.log
+
+# Android Studio specific
+captures/
+.externalNativeBuild/
+.cxx/
+*.swp
+*~
+.navigation/
+
+# Keystore files
+*.jks
+*.p12
+*.keystore
+*.key
+*.pub
+
+# Google Services
+google-services.json
+
+# Lint and test results
+lint/
+test-results/
+
+# Java and Kotlin specific
+*.class
+bin/
