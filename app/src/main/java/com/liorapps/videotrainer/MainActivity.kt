@@ -12,14 +12,14 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.ui.NavDisplay
 import com.liorapps.videotrainer.navigation.NavKey
-import com.liorapps.videotrainer.ui.screens.MainScreen
+import com.liorapps.videotrainer.ui.screens.mainscreen.MainScreen
 import com.liorapps.videotrainer.ui.screens.SettingsScreen
 import com.liorapps.videotrainer.ui.theme.VideoTrainerTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        enableEdgeToEdge() // Allow the app to draw behind system bars
         setContent {
             VideoTrainerTheme {
                 VideoTrainerApp()
