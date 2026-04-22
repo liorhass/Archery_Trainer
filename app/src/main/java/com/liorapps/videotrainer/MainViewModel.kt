@@ -7,14 +7,18 @@ import androidx.camera.core.CameraSelector
 import androidx.compose.foundation.AndroidExternalSurface
 import androidx.compose.runtime.*
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.liorapps.videotrainer.navigation.NavKey
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import timber.log.Timber
 
@@ -56,7 +60,7 @@ enum class CameraPermissionState { CHECKING, GRANTED, DENIED }
  *
  * @param application  Application context forwarded to [EncoderCoroutine] for [CameraManager].
  */
-class MainViewModel(application: Application) : AndroidViewModel(application) {
+class MainViewModel(application: Application, val settingsRepo: SettingsRepository) : AndroidViewModel(application) {
     // ─────────────────────────────────────────────────────────────────────────
     // UI-observable Compose state  (main-thread reads + writes only)
     // ─────────────────────────────────────────────────────────────────────────
@@ -72,13 +76,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     var playbackState: PlaybackState by mutableStateOf(PlaybackState.PAUSED)
         private set
 
-    /**
-     * User-selected delay in seconds. Readable from [Dispatchers.IO] via the lambda passed
-     * to [DecoderCoroutine] — [mutableStateOf] is backed by @Volatile, so cross-thread
-     * reads are safe (§11).
-     */
-    var delaySec: Int by mutableStateOf(VideoTrainerConfig.DEFAULT_DELAY_SEC)
-        private set
+//    /**
+//     * User-selected delay in seconds. Readable from [Dispatchers.IO] via the lambda passed
+//     * to [DecoderCoroutine] — [mutableStateOf] is backed by @Volatile, so cross-thread
+//     * reads are safe (§11).
+//     */
+//    var delaySec: Int by mutableStateOf(VideoTrainerConfig.DEFAULT_DELAY_SEC)
+//        private set
+    val delaySec: StateFlow<Int> = settingsRepo.delaySec
+        .stateIn(viewModelScope, SharingStarted.Eagerly, VideoTrainerDefaults.DEFAULT_DELAY_SEC)
 
     /** Non-null when a fatal pipeline error has occurred. The UI should surface this message. */
     var errorMessage: String? by mutableStateOf(null)
@@ -91,6 +97,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val cameraPermissionStateFlow = _cameraPermissionStateFlow.asStateFlow()
     fun onCameraPermissionGranted() { _cameraPermissionStateFlow.value = CameraPermissionState.GRANTED }
     fun onCameraPermissionDenied() { _cameraPermissionStateFlow.value = CameraPermissionState.DENIED }
+
 
     // ─────────────────────────────────────────────────────────────────────────
     // Pipeline-internal shared state
@@ -145,7 +152,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     //   _videoSize.value = VideoSize(format.getInteger(MediaFormat.KEY_WIDTH),
     //                                format.getInteger(MediaFormat.KEY_HEIGHT))
     data class VideoSize(val width: Int, val height: Int)
-    private val _videoSize = MutableStateFlow<VideoSize>(VideoSize(VideoTrainerConfig.VIDEO_WIDTH, VideoTrainerConfig.VIDEO_HEIGHT))
+    private val _videoSize = MutableStateFlow<VideoSize>(VideoSize(VideoTrainerDefaults.VIDEO_WIDTH, VideoTrainerDefaults.VIDEO_HEIGHT))
     val videoSize: StateFlow<VideoSize> = _videoSize.asStateFlow()
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -176,8 +183,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      * @param newDelaySec  New delay in seconds; must be in [MIN_DELAY_SEC, MAX_DELAY_SEC].
      */
     fun onDelayChanged(newDelaySec: Int) {
-        val wasReduced = newDelaySec < delaySec
-        delaySec = newDelaySec
+        val wasReduced = newDelaySec < delaySec.value
+        viewModelScope.launch { settingsRepo.setDelaySec(newDelaySec) }
         if (wasReduced && playbackState == PlaybackState.PLAYING) {
             // A jump is needed only when delay decreases (targetPTS moves forward in time).
             // Increasing delay requires no action — the decoder naturally falls behind.
@@ -321,7 +328,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     nalRingBuffer            = ringBuffer,
                     codecConfigDataHolder = codecConfigDataHolder,
                     outputSurface         = surface,
-                    delaySecProvider      = { delaySec },   // reads @Volatile-backed Compose state
+                    delaySecProvider      = { delaySec.value },   // reads @Volatile-backed Compose state
                     jumpChannel           = jumpChannel,
                     onError               = ::handlePipelineError,
                 ).run()
@@ -386,7 +393,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun onDelayChange(value: Int) {
-        delaySec = value.coerceIn(VideoTrainerConfig.MIN_DELAY_SEC, VideoTrainerConfig.MAX_DELAY_SEC)
+        val newDelaySec = value.coerceIn(VideoTrainerDefaults.MIN_DELAY_SEC, VideoTrainerDefaults.MAX_DELAY_SEC)
+        viewModelScope.launch { settingsRepo.setDelaySec(newDelaySec) }
     }
 
     fun navigateTo(key: NavKey) {
@@ -465,29 +473,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     */
 }
 
-
-//vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-//vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-//vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-//vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-//vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-//
-// TimeShiftViewModel — highlights worth noting:
-//
-// Ring buffer reset on startPipeline(), not on stopPipeline(). This means the buffer
-//   persists through the pause (as you originally described), but is cleared the moment the
-//   user hits Play again so the decoder never sees stale frames from a prior session.
-// codecConfigDataHolder[0] = null on startPipeline(). The encoder will re-emit fresh
-//   SPS/PPS within a few frames. Clearing the slot here forces
-//   DecoderCoroutine.waitForCodecConfig() to block until that happens, preventing the
-//   decoder from accidentally using the previous session's codec config.
-// Encoder survives surface destruction, decoder does not. When onSurfaceDestroyed() is
-//   called (e.g. screen rotation), only decoderJob is cancelled. The encoder keeps the
-//   camera and ring buffer running. When onSurfaceReady() fires with the new surface,
-//   launchDecoderJob() is called again and the decoder picks up from wherever the ring buffer is.
-// Surface/pipeline ordering is race-free because both startPipeline() and onSurfaceReady()
-//   are called on the main thread, so they're always serialized.
-// handlePipelineError dispatches back to the main thread via an undecorated
-//   viewModelScope.launch (which defaults to Dispatchers.Main) before touching any
-//   Compose state, since the error callbacks fire on Dispatchers.IO.
-
+class MainViewModelFactory(
+    private val application: Application,
+    private val repo: SettingsRepository
+) : ViewModelProvider.Factory {
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        if (modelClass.isAssignableFrom(MainViewModel::class.java)) {
+            @Suppress("UNCHECKED_CAST")
+            return MainViewModel(application, repo) as T
+        }
+        throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
+    }
+}

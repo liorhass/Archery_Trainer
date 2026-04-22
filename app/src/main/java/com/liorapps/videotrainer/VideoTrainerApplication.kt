@@ -1,9 +1,20 @@
 package com.liorapps.videotrainer
 
 import android.app.Application
+import androidx.datastore.preferences.preferencesDataStore
 import timber.log.Timber
+import kotlin.getValue
 
 class VideoTrainerApplication: Application() {
+
+    // DataStore singleton
+    val dataStore by preferencesDataStore(name = "settings")
+
+    // Repository singleton
+    val settingsRepository by lazy {
+        SettingsRepository(dataStore)
+    }
+
     override fun onCreate() {
         super.onCreate()
         if (BuildConfig.DEBUG) {

@@ -6,7 +6,7 @@ package com.liorapps.videotrainer
  * All sizing decisions and their rationale are documented in §14 and §3 of the
  * architecture plan. Change values here only — never hardcode them elsewhere.
  */
-object VideoTrainerConfig {
+object VideoTrainerDefaults {
 
     // -------------------------------------------------------------------------
     // Video format
@@ -48,7 +48,7 @@ object VideoTrainerConfig {
     const val MIN_DELAY_SEC: Int = 0
 
     /** Default (initial) delay in seconds. */
-    const val DEFAULT_DELAY_SEC  = 2
+    const val DEFAULT_DELAY_SEC  = 5
 
     // -------------------------------------------------------------------------
     // Ring buffer sizing  (§3.1, §3.2)

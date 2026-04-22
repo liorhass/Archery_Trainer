@@ -325,7 +325,7 @@ class NalRingBuffer(
 
         /**
          * Default metadata capacity: 30 s × 30 fps × 1.33 headroom ≈ 1200 slots.
-         * Matches [VideoTrainerConfig.MAX_FRAMES].
+         * Matches [VideoTrainerDefaults.MAX_FRAMES].
          */
         const val DEFAULT_MAX_FRAMES: Int = 1200
     }

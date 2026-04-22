@@ -11,7 +11,6 @@ import android.media.MediaCodecInfo
 import android.media.MediaFormat
 import android.os.Handler
 import android.os.HandlerThread
-import android.util.Log
 import android.view.Surface
 import androidx.annotation.RequiresPermission
 import kotlinx.coroutines.CancellationException
@@ -110,16 +109,16 @@ class EncoderCoroutine(
             // ------------------------------------------------------------------
             val format = MediaFormat.createVideoFormat(
                 MediaFormat.MIMETYPE_VIDEO_AVC,
-                VideoTrainerConfig.VIDEO_WIDTH,
-                VideoTrainerConfig.VIDEO_HEIGHT,
+                VideoTrainerDefaults.VIDEO_WIDTH,
+                VideoTrainerDefaults.VIDEO_HEIGHT,
             ).apply {
                 setInteger(
                     MediaFormat.KEY_COLOR_FORMAT,
                     MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface,
                 )
-                setInteger(MediaFormat.KEY_BIT_RATE, VideoTrainerConfig.BIT_RATE)
-                setInteger(MediaFormat.KEY_FRAME_RATE, VideoTrainerConfig.FRAME_RATE)
-                setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, VideoTrainerConfig.I_FRAME_INTERVAL)
+                setInteger(MediaFormat.KEY_BIT_RATE, VideoTrainerDefaults.BIT_RATE)
+                setInteger(MediaFormat.KEY_FRAME_RATE, VideoTrainerDefaults.FRAME_RATE)
+                setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, VideoTrainerDefaults.I_FRAME_INTERVAL)
                 setInteger(
                     MediaFormat.KEY_BITRATE_MODE,
                     MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR,
