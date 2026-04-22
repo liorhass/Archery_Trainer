@@ -62,7 +62,7 @@ dependencies {
     implementation(libs.converter.moshi)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.coroutines.core)
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-guava:1.10.1")
+//    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-guava:1.10.1")
     implementation(libs.accompanist.permissions)
     implementation(libs.play.services.location)
     implementation(libs.androidx.camera.camera2)
