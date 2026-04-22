@@ -11,7 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import android.content.res.Configuration
-import androidx.compose.material.icons.filled.Fullscreen
+import androidx.activity.compose.BackHandler
 import androidx.compose.material.icons.filled.FullscreenExit
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -52,8 +52,13 @@ fun MainScreenContent(
     val videoSize by viewModel.videoSize.collectAsStateWithLifecycle()
     val isFullScreen = viewModel.isFullScreen
 
-//    val fullScreenController = rememberFullScreenController()
+    // Set the window as necessary (e.g. to show or hide system bars)
     FullScreenEffect(isFullScreen)
+
+    // When in full-screen we want the back button to simply exit full-screen
+    BackHandler(enabled = isFullScreen) {
+        viewModel.navigateBack()
+    }
 
     Box(
         modifier = Modifier
@@ -133,7 +138,7 @@ fun MainScreenContent(
             delay = viewModel.delaySec,
             onTogglePlayback = viewModel::togglePlayback,
             onToggleFullScreen = viewModel::toggleIsFullScreen,
-            onDelayChange = viewModel::updateDelay,
+            onDelayChange = viewModel::onDelayChange,
         )
     }
 }

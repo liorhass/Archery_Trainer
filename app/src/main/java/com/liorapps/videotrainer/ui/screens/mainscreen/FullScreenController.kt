@@ -1,9 +1,7 @@
 package com.liorapps.videotrainer.ui.screens.mainscreen
 
-import android.app.Activity
 import androidx.activity.compose.LocalActivity
 import androidx.compose.runtime.*
-import androidx.compose.ui.platform.LocalContext
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat

@@ -377,8 +377,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         ringBuffer.reset()
     }
 
-
-
     fun switchCamera() {
         selectedCamera = if (selectedCamera == CameraSelector.DEFAULT_BACK_CAMERA) {
             CameraSelector.DEFAULT_FRONT_CAMERA
@@ -387,7 +385,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun updateDelay(value: Int) {
+    fun onDelayChange(value: Int) {
         delaySec = value.coerceIn(VideoTrainerConfig.MIN_DELAY_SEC, VideoTrainerConfig.MAX_DELAY_SEC)
     }
 
@@ -395,12 +393,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         backStack.add(key)
     }
 
-    fun navigateBack(): Boolean {
-        if (backStack.size > 1) {
-            backStack.removeAt(backStack.size - 1)
-            return true
+    fun navigateBack() {
+        when {
+            isFullScreen       -> setIsFullScreen(false)
+            backStack.size > 1 -> backStack.removeAt(backStack.size - 1)
         }
-        return false
     }
 
     //todo lh: 2brm
