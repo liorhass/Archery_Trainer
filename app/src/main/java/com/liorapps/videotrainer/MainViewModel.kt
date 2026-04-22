@@ -84,6 +84,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     var errorMessage: String? by mutableStateOf(null)
         private set
 
+    var isFullScreen: Boolean by mutableStateOf(false)
+        private set
+
     private val _cameraPermissionStateFlow = MutableStateFlow<CameraPermissionState>(CameraPermissionState.CHECKING)
     val cameraPermissionStateFlow = _cameraPermissionStateFlow.asStateFlow()
     fun onCameraPermissionGranted() { _cameraPermissionStateFlow.value = CameraPermissionState.GRANTED }
@@ -181,6 +184,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             // trySend on a CONFLATED channel never blocks and never fails due to capacity.
             jumpChannel.trySend(Unit)
         }
+    }
+
+    fun setIsFullScreen(newIsFullScreen: Boolean) {
+        isFullScreen = newIsFullScreen
+    }
+    fun toggleIsFullScreen() {
+        isFullScreen = !isFullScreen
     }
 
     /**
