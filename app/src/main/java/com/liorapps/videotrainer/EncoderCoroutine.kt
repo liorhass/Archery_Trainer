@@ -109,8 +109,8 @@ class EncoderCoroutine(
             // ------------------------------------------------------------------
             val format = MediaFormat.createVideoFormat(
                 MediaFormat.MIMETYPE_VIDEO_AVC,
-                VideoTrainerDefaults.VIDEO_WIDTH,
-                VideoTrainerDefaults.VIDEO_HEIGHT,
+                VideoTrainerDefaults.VideoResolution.HD_1024x720().width,
+                VideoTrainerDefaults.VideoResolution.HD_1024x720().height,
             ).apply {
                 setInteger(
                     MediaFormat.KEY_COLOR_FORMAT,

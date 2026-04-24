@@ -164,8 +164,8 @@ class DecoderCoroutine(
         // The decoder learns everything else (profile, level, colour space) from the SPS/PPS.
         val videoFormat = MediaFormat.createVideoFormat(
             MediaFormat.MIMETYPE_VIDEO_AVC,
-            VideoTrainerDefaults.VIDEO_WIDTH, // todo zzzzzz
-            VideoTrainerDefaults.VIDEO_HEIGHT,
+            VideoTrainerDefaults.VideoResolution.HD_1024x720().width, // todo from settings
+            VideoTrainerDefaults.VideoResolution.HD_1024x720().height, // todo from settings
         )
         decoder.configure(videoFormat, outputSurface, /* crypto = */ null, /* flags = */ 0)
         decoder.start()

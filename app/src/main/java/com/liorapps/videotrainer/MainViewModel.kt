@@ -83,8 +83,10 @@ class MainViewModel(application: Application, val settingsRepo: SettingsReposito
 //     */
 //    var delaySec: Int by mutableStateOf(VideoTrainerConfig.DEFAULT_DELAY_SEC)
 //        private set
-    val delaySec: StateFlow<Int> = settingsRepo.delaySec
-        .stateIn(viewModelScope, SharingStarted.Eagerly, VideoTrainerDefaults.DEFAULT_DELAY_SEC)
+//    val delaySec: StateFlow<Int> = settingsRepo.delaySec
+//        .stateIn(viewModelScope, SharingStarted.Eagerly, VideoTrainerDefaults.DEFAULT_DELAY_SEC)
+    val settingsFlow: StateFlow<SettingsRepository.Settings> = settingsRepo.settingsFlow
+        .stateIn(viewModelScope, SharingStarted.Eagerly, SettingsRepository.Settings())
 
     /** Non-null when a fatal pipeline error has occurred. The UI should surface this message. */
     var errorMessage: String? by mutableStateOf(null)
@@ -146,14 +148,10 @@ class MainViewModel(application: Application, val settingsRepo: SettingsReposito
     /** Coroutine job for [DecoderCoroutine.run]. Null when stopped or surface is unavailable. */
     private var decoderJob: Job? = null
 
-    // Expose video dimensions as soon as they are known (e.g. from MediaFormat after
-    // MediaCodec.INFO_OUTPUT_FORMAT_CHANGED, or set statically if dimensions are fixed).
-    // Set this once you know the dimensions, e.g. in your MediaCodec callback:
-    //   _videoSize.value = VideoSize(format.getInteger(MediaFormat.KEY_WIDTH),
-    //                                format.getInteger(MediaFormat.KEY_HEIGHT))
-    data class VideoSize(val width: Int, val height: Int)
-    private val _videoSize = MutableStateFlow<VideoSize>(VideoSize(VideoTrainerDefaults.VIDEO_WIDTH, VideoTrainerDefaults.VIDEO_HEIGHT))
-    val videoSize: StateFlow<VideoSize> = _videoSize.asStateFlow()
+    private val _videoResolution = MutableStateFlow<VideoTrainerDefaults.VideoResolution>(
+        VideoTrainerDefaults.VideoResolution.HD_1024x720()
+    )
+    val videoResolution: StateFlow<VideoTrainerDefaults.VideoResolution> = _videoResolution.asStateFlow()
 
     // ─────────────────────────────────────────────────────────────────────────
     // Public API — called from the UI / Compose lifecycle
@@ -183,7 +181,7 @@ class MainViewModel(application: Application, val settingsRepo: SettingsReposito
      * @param newDelaySec  New delay in seconds; must be in [MIN_DELAY_SEC, MAX_DELAY_SEC].
      */
     fun onDelayChanged(newDelaySec: Int) {
-        val wasReduced = newDelaySec < delaySec.value
+        val wasReduced = newDelaySec < settingsFlow.value.delaySec
         viewModelScope.launch { settingsRepo.setDelaySec(newDelaySec) }
         if (wasReduced && playbackState == PlaybackState.PLAYING) {
             // A jump is needed only when delay decreases (targetPTS moves forward in time).
@@ -211,7 +209,7 @@ class MainViewModel(application: Application, val settingsRepo: SettingsReposito
     fun onSurfaceReady(surface: Surface) {
         Timber.d("#######VM onSurfaceReady()")
         currentSurface = surface
-        if (playbackState == PlaybackState.PLAYING && decoderJob?.isActive != true) {
+        if (playbackState == PlaybackState.PLAYING  &&  decoderJob?.isActive != true) {
             launchDecoderJob(surface)
         }
     }
@@ -328,7 +326,7 @@ class MainViewModel(application: Application, val settingsRepo: SettingsReposito
                     nalRingBuffer            = ringBuffer,
                     codecConfigDataHolder = codecConfigDataHolder,
                     outputSurface         = surface,
-                    delaySecProvider      = { delaySec.value },   // reads @Volatile-backed Compose state
+                    delaySecProvider      = { settingsFlow.value.delaySec },   // reads @Volatile-backed Compose state
                     jumpChannel           = jumpChannel,
                     onError               = ::handlePipelineError,
                 ).run()
@@ -353,8 +351,8 @@ class MainViewModel(application: Application, val settingsRepo: SettingsReposito
      * [Dispatchers.IO], so the [viewModelScope.launch] dispatch to main is required.
      */
     private fun handlePipelineError(e: Throwable) {
-        Timber.e(e, "Pipeline error")
         viewModelScope.launch {                          // no dispatcher = main thread
+            Timber.e(e, "#######VM handlePipelineError() Pipeline error")
             errorMessage = e.message ?: "Unknown pipeline error"
             stopPipeline()
         }
@@ -380,6 +378,7 @@ class MainViewModel(application: Application, val settingsRepo: SettingsReposito
      */
     override fun onCleared() {
         super.onCleared()
+        Timber.d("#######VM onCleared()")
         stopPipeline()
         ringBuffer.reset()
     }
@@ -407,6 +406,14 @@ class MainViewModel(application: Application, val settingsRepo: SettingsReposito
             backStack.size > 1 -> backStack.removeAt(backStack.size - 1)
         }
     }
+
+    fun updateSettings(newSettings: SettingsRepository.Settings) {
+        viewModelScope.launch {
+            settingsRepo.updateSettings(newSettings)
+        }
+    }
+
+
 
     //todo lh: 2brm
     // Called from the UI when the camera permission result is received

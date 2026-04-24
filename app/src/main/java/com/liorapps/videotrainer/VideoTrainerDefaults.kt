@@ -1,10 +1,9 @@
 package com.liorapps.videotrainer
 
+import kotlinx.serialization.Serializable
+
 /**
- * Global constants for the TimeShift pipeline.
- *
- * All sizing decisions and their rationale are documented in §14 and §3 of the
- * architecture plan. Change values here only — never hardcode them elsewhere.
+ * Global constants
  */
 object VideoTrainerDefaults {
 
@@ -12,11 +11,24 @@ object VideoTrainerDefaults {
     // Video format
     // -------------------------------------------------------------------------
 
-    /** Frame width in pixels. Switch to 1920 for 1080p. */
-    const val VIDEO_WIDTH: Int = 1280
+    @Serializable
+    sealed class VideoResolution(val width: Int, val height: Int) {
+        @Serializable class SD_640x480(): VideoResolution(640, 480)
+        @Serializable class HD_1024x720(): VideoResolution(1024, 720)
+        @Serializable class FHD_1920x1080(): VideoResolution(1920, 1080)
+        @Serializable class QHD_2560x1440(): VideoResolution(2560, 1440)
+        @Serializable class UHD_3840x2160(): VideoResolution(3840, 2160)
 
-    /** Frame height in pixels. Switch to 1080 for 1080p. */
-    const val VIDEO_HEIGHT: Int = 720
+        override fun toString(): String { return "${width}x${height}" }
+
+    }
+    val VIDEO_RESOLUTION = VideoResolution.HD_1024x720()  // Default resolution is 720p
+
+//    /** Frame width in pixels. Switch to 1920 for 1080p. */
+//    const val VIDEO_WIDTH: Int = 1280
+//
+//    /** Frame height in pixels. Switch to 1080 for 1080p. */
+//    const val VIDEO_HEIGHT: Int = 720
 
     /** Target frame rate in frames per second. */
     const val FRAME_RATE: Int = 30
@@ -28,6 +40,7 @@ object VideoTrainerDefaults {
      * At this rate, 30 seconds of H.264 ≈ 56 MB, well within [BUFFER_SIZE_BYTES].
      */
     const val BIT_RATE: Int = 15_000_000
+    const val MAX_BIT_RATE: Int = 20_000_000
 
     /**
      * I-frame interval in seconds.
@@ -55,11 +68,11 @@ object VideoTrainerDefaults {
     // -------------------------------------------------------------------------
 
     /**
-     * Native (DirectByteBuffer) data buffer size in bytes.
-     *
-     * Derivation: 30 s × 2.5 MB/s × 1.2 safety margin ≈ 90 MB.
+     * Native (DirectByteBuffer) data buffer size in bytes
+     * Rational: Should have been .../8. We divide by 6 in order to have a 33% safety margin
+     * E.g.: 30s × 20MBit/S / 6 ≈ 100MB.
      */
-    const val BUFFER_SIZE_BYTES: Int = 90 * 1024 * 1024
+    const val BUFFER_SIZE_BYTES: Int = MAX_DELAY_SEC * MAX_BIT_RATE / 6
 
     /**
      * Metadata ring buffer capacity in number of NAL unit slots.
