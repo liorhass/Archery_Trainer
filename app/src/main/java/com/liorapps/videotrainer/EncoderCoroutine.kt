@@ -77,7 +77,7 @@ class EncoderCoroutine(
     private val context: Context,
     private val ringBuffer: NalRingBuffer,
     private val codecConfigDataHolder: Array<ByteArray?>,   // index 0 = codecConfigData
-    private val onError: (Throwable) -> Unit = {},
+//    private val onError: (Throwable) -> Unit = {},
 ) {
 
     // -------------------------------------------------------------------------
@@ -179,7 +179,8 @@ class EncoderCoroutine(
             throw e
         } catch (e: Exception) {
             Timber.d("####### Encoder coroutine failed")
-            onError(e)
+//            onError(e)
+            throw e
         } finally {
             Timber.d("####### Encoder coroutine exiting")
             // ------------------------------------------------------------------
@@ -356,40 +357,43 @@ class EncoderCoroutine(
                         cont.resume(device)
                     } else {
                         device.close()
+                        cont.resumeWithException(IllegalStateException("openCamera() continuation is not active"))
                     }
                 }
 
                 override fun onDisconnected(device: CameraDevice) {
                     device.close()
-                    Timber.w("####### ####### openCamera() onDisconnected isActive=${cont.isActive}")
-                    if (cont.isActive) {
+                    Timber.w("####### ####### openCamera() onDisconnected cont.isActive=${cont.isActive}")
+//                    if (cont.isActive) {
                         cont.resumeWithException(
-                            IllegalStateException("Camera $cameraId disconnected during open")
+                            IllegalStateException("Camera disconnected during open. cameraId=$cameraId")
                         )
-                    } else {
-                        // Camera disconnected after it was already opened.
-                        // Notify the onError callback so the pipeline stops cleanly.
-                        onError(IllegalStateException("Camera $cameraId disconnected"))
-                    }
+//                    } else {
+//                        // Camera disconnected after it was already opened.
+//                        // Notify the onError callback so the pipeline stops cleanly.
+//                        onError(IllegalStateException("Camera $cameraId disconnected"))
+//                    }
                 }
 
                 override fun onError(device: CameraDevice, error: Int) {
-                    Timber.w("####### ####### openCamera() onError isActive=${cont.isActive} error=$error")
+                    Timber.w("####### ####### openCamera() onError cont.isActive=${cont.isActive} error=$error")
                     device.close()
-                    if (cont.isActive) {
+//                    if (cont.isActive) {
                         cont.resumeWithException(
-                            RuntimeException("Camera $cameraId open error: $error")
+                            RuntimeException("Camera open error:  cameraId=$cameraId error=$error")
                         )
-                    } else {
-                        onError(RuntimeException("Camera $cameraId error: $error"))
-                    }
+//                    } else {
+//                        onError(RuntimeException("Camera $cameraId error: $error"))
+//                    }
                 }
             },
             handler
         )
 
-        cont.invokeOnCancellation { /* device closed in finally block of run() if open */
+        /* device closed in finally block of run() if open */
+        cont.invokeOnCancellation { throwable ->
             Timber.w("####### ####### openCamera() cont.invokeOnCancellation")
+            Timber.w("####### ####### cont.invokeOnCancellation err: ${if (throwable != null) throwable.message else "null"}")
         }
     }
 
@@ -402,12 +406,13 @@ class EncoderCoroutine(
         surface: Surface,
         handler: Handler,
     ): CameraCaptureSession = suspendCancellableCoroutine { cont ->
-        Timber.d("####### createCaptureSession()")
+        Timber.d("#######E createCaptureSession()")
         // TODO: LH this is obsolete. see: https://developer.android.com/reference/android/hardware/camera2/CameraDevice#createCaptureSession(java.util.List%3Candroid.view.Surface%3E,%20android.hardware.camera2.CameraCaptureSession.StateCallback,%20android.os.Handler)
         device.createCaptureSession(
             listOf(surface),
             object : CameraCaptureSession.StateCallback() {
                 override fun onConfigured(session: CameraCaptureSession) {
+                    Timber.d("#######E createCaptureSession() 111")
                     if (cont.isActive) {
                         Timber.d("####### createCaptureSession() got session=$session")
                         cont.resume(session)
@@ -417,6 +422,7 @@ class EncoderCoroutine(
                 }
 
                 override fun onConfigureFailed(session: CameraCaptureSession) {
+                    Timber.d("#######E createCaptureSession() 222")
                     if (cont.isActive) {
                         cont.resumeWithException(
                             RuntimeException("CaptureSession configuration failed")

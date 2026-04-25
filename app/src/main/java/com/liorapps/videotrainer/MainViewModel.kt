@@ -11,9 +11,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.liorapps.videotrainer.navigation.NavKey
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -163,11 +166,17 @@ class MainViewModel(application: Application, val settingsRepo: SettingsReposito
      * • PLAYING → stops capture; the ring buffer is preserved.
      */
     @RequiresPermission(android.Manifest.permission.CAMERA)
-    fun togglePlayback() {
+    fun onTogglePlayback() {
         Timber.d("#######VM togglePlayback() currentPlaybackState=$playbackState")
         when (playbackState) {
-            PlaybackState.PAUSED  -> startPipeline()
-            PlaybackState.PLAYING -> stopPipeline()
+            PlaybackState.PAUSED  -> {
+                startPipeline()
+                playbackState = PlaybackState.PLAYING
+            }
+            PlaybackState.PLAYING -> {
+                stopPipeline()
+                playbackState = PlaybackState.PAUSED
+            }
         }
     }
 
@@ -207,10 +216,21 @@ class MainViewModel(application: Application, val settingsRepo: SettingsReposito
      * @param surface  The hardware surface that [DecoderCoroutine] will render into.
      */
     fun onSurfaceReady(surface: Surface) {
-        Timber.d("#######VM onSurfaceReady()")
+        Timber.d("#######VM onSurfaceReady() playbackState=$playbackState  <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
         currentSurface = surface
-        if (playbackState == PlaybackState.PLAYING  &&  decoderJob?.isActive != true) {
-            launchDecoderJob(surface)
+        viewModelScope.launch {
+            // Sometimes the surface gets destroyed and then a new one becomes ready in quick
+            // succession. This happens in scenarios such as:
+            //   - The phone is rotated and the screen gets recreated
+            //   - The user moves from normal-screen to full-screen or vice versa
+            // When the surface is destroyed, the decoder is torn down and then recreated. Without
+            // this 200mSec delay it is possible for the call to onSurfaceReady() to happen before
+            // the tearing down of the decoder completes, and this causes a mess (tearing down the
+            // newly created surface). This is a simple Hack to prevent this.
+            delay(200)
+            if (playbackState == PlaybackState.PLAYING  &&  decoderJob?.isActive != true) {
+                launchDecoderJob(surface)
+            }
         }
     }
 
@@ -224,6 +244,7 @@ class MainViewModel(application: Application, val settingsRepo: SettingsReposito
      * via [onSurfaceReady], a fresh decoder job is launched automatically.
      */
     fun onSurfaceDestroyed() {
+        Timber.d("#######VM onSurfaceDestroyed()  <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
         decoderJob?.cancel()
         decoderJob = null
         currentSurface = null
@@ -254,7 +275,7 @@ class MainViewModel(application: Application, val settingsRepo: SettingsReposito
         codecConfigDataHolder[0] = null
         errorMessage = null
 
-        playbackState = PlaybackState.PLAYING
+//        playbackState = PlaybackState.PLAYING
 
         launchEncoderJob()
 
@@ -276,7 +297,7 @@ class MainViewModel(application: Application, val settingsRepo: SettingsReposito
      *   next [startPipeline] call (or in [onCleared]).
      */
     private fun stopPipeline() {
-        Timber.d("#######VM stopPipeline()")
+        Timber.d(Throwable(), "#######VM stopPipeline(): Current call stack trace")
         // Cancellation is cooperative: each coroutine's finally block handles its own teardown.
         encoderJob?.cancel()
         encoderJob = null
@@ -284,7 +305,7 @@ class MainViewModel(application: Application, val settingsRepo: SettingsReposito
         decoderJob?.cancel()
         decoderJob = null
 
-        playbackState = PlaybackState.PAUSED
+//        playbackState = PlaybackState.PAUSED
     }
 //    fun stopPipeline() {
 //        // Architecture §10.2 teardown order:
@@ -303,36 +324,44 @@ class MainViewModel(application: Application, val settingsRepo: SettingsReposito
 
     @RequiresPermission(android.Manifest.permission.CAMERA)
     private fun launchEncoderJob() {
-        encoderJob = viewModelScope.launch(Dispatchers.IO) {
+        encoderJob = viewModelScope.launch(Dispatchers.IO + CoroutineName("ATEncoderCoroutine")) {
             try {
                 EncoderCoroutine(
                     context               = getApplication(),
                     ringBuffer            = ringBuffer,
                     codecConfigDataHolder = codecConfigDataHolder,
-                    onError               = ::handlePipelineError,
+//                    onError               = ::handleEncoderError,
                 ).run()
+            } catch (e: CancellationException) {
+                Timber.d(e, "#######VM encoder CancellationException")
+                stopPipeline()
             } catch (e: Exception) {
-                Timber.e(e, "EncoderCoroutine failed")
-                handlePipelineError(e)
+                Timber.e(e, "#######VM EncoderCoroutine failed")
+//                handleEncoderError(e)
+                stopPipeline()
             }
         }
     }
 
     private fun launchDecoderJob(surface: Surface) {
-        decoderJob = viewModelScope.launch(Dispatchers.IO) {
+        decoderJob = viewModelScope.launch(Dispatchers.IO + CoroutineName("ATDecoderCoroutine")) {
             try {
-                Timber.d("launchDecoderJob()")
+                Timber.d("#######VM launchDecoderJob()")
                 DecoderCoroutine(
-                    nalRingBuffer            = ringBuffer,
+                    nalRingBuffer         = ringBuffer,
                     codecConfigDataHolder = codecConfigDataHolder,
                     outputSurface         = surface,
                     delaySecProvider      = { settingsFlow.value.delaySec },   // reads @Volatile-backed Compose state
                     jumpChannel           = jumpChannel,
-                    onError               = ::handlePipelineError,
+//                    onError               = ::handleDecoderError,
                 ).run()
+            } catch (e: CancellationException) {
+                Timber.d(e, "#######VM decoder CancellationException")
             } catch (e: Exception) {
-                Timber.e(e, "DecoderCoroutine failed")
-                handlePipelineError(e)
+                Timber.e(e, "#######VM DecoderCoroutine failed")
+//                handleDecoderError(e)
+                decoderJob?.cancel()
+                decoderJob = null
             }
         }
     }
@@ -350,13 +379,22 @@ class MainViewModel(application: Application, val settingsRepo: SettingsReposito
      * [onError] callbacks from [EncoderCoroutine] and [DecoderCoroutine] are called on
      * [Dispatchers.IO], so the [viewModelScope.launch] dispatch to main is required.
      */
-    private fun handlePipelineError(e: Throwable) {
-        viewModelScope.launch {                          // no dispatcher = main thread
-            Timber.e(e, "#######VM handlePipelineError() Pipeline error")
-            errorMessage = e.message ?: "Unknown pipeline error"
-            stopPipeline()
-        }
-    }
+//    private fun handleEncoderError(e: Throwable) {
+//        viewModelScope.launch {                          // no dispatcher = main thread
+//            Timber.e(e, "#######VM handleEncoderError() Pipeline error")
+//            errorMessage = e.message ?: "Unknown pipeline error"
+//            stopPipeline()
+//        }
+//    }
+//    private fun handleDecoderError(e: Throwable) {
+//        Timber.e(e, "#######VM handleDecoderError() Pipeline error")
+//        viewModelScope.launch {                          // no dispatcher = main thread
+//            errorMessage = e.message ?: "Unknown pipeline error"
+//            Timber.e("#######VM handleDecoderError() Got error: $errorMessage" +
+//                    "")
+//            stopPipeline()
+//        }
+//    }
 
     // ─────────────────────────────────────────────────────────────────────────
     // ViewModel cleanup

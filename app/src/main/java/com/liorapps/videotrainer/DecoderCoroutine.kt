@@ -78,7 +78,7 @@ class DecoderCoroutine(
      * Invoked on fatal, non-cancellation errors (e.g. [MediaCodec.CodecException]).
      * Does not rethrow — the coroutine returns normally after invoking this callback.
      */
-    private val onError: (Throwable) -> Unit = {},
+//    private val onError: (Throwable) -> Unit = {},
 ) {
 
     // Three operating states for the decode loop.
@@ -137,25 +137,30 @@ class DecoderCoroutine(
         val decoder = MediaCodec.createDecoderByType(MediaFormat.MIMETYPE_VIDEO_AVC)
         try {
             setupDecoder(decoder)
-            Timber.e("After setupDecoder()")
+            Timber.d("#######D After setupDecoder()")
             runDecodeLoop(decoder)
-            Timber.e("After runDecodeLoop()")
+            Timber.d("#######D After runDecodeLoop()")
         } catch (e: CancellationException) {
+            Timber.d(e, "#######D CancellationException")
             throw e  // Let the coroutine framework handle cancellation normally.
         } catch (e: Exception) {
-            Timber.e(e, "Fatal decoder error")
-            onError(e)
+            Timber.e(e, "#######D Fatal decoder error")
+//            onError(e)
+            throw e
         } finally {
             // Always release — even on cancellation or error.
             // Each step is wrapped independently so one failure cannot prevent subsequent releases.
+            Timber.d("#######D finally calling decoder.stop()")
             runCatching { decoder.stop() }
                 .onFailure { Timber.e(it, "decoder.stop() failed") }
+            Timber.d("#######D finally calling decoder.release()")
             runCatching { decoder.release() }
                 .onFailure { Timber.e(it, "decoder.release() failed") }
         }
     }
 
     private suspend fun setupDecoder(decoder: MediaCodec) {
+        Timber.d("#######D setupDecoder()")
         // The encoder emits SPS/PPS very shortly after startup (usually within 1–2 frames).
         // Block here until those bytes are available; we cannot configure the decoder without them.
         waitForCodecConfig()
@@ -167,6 +172,7 @@ class DecoderCoroutine(
             VideoTrainerDefaults.VideoResolution.HD_1024x720().width, // todo from settings
             VideoTrainerDefaults.VideoResolution.HD_1024x720().height, // todo from settings
         )
+        decoder.reset()
         decoder.configure(videoFormat, outputSurface, /* crypto = */ null, /* flags = */ 0)
         decoder.start()
 
@@ -179,6 +185,8 @@ class DecoderCoroutine(
     // -----------------------------------------------------------------------------------------
 
     private suspend fun runDecodeLoop(decoder: MediaCodec) {
+        Timber.d("#######D runDecodeLoop()")
+
         // Start FROZEN: the ring buffer is empty at pipeline launch. The state machine will
         // transition to CATCHING_UP → PLAYING once the encoder has produced enough data.
         var state = State.FROZEN
@@ -208,6 +216,7 @@ class DecoderCoroutine(
             // there is nothing to decode. Sleep and try again.
             // Primary triggers: (1) pipeline startup — buffer is empty; (2) encoder stall (rare).
             if (nalRingBuffer.isEmpty() || nalRingBuffer.newestPts() < targetPTS) {
+                Timber.d("#######D xxxxxxxxxx1")
                 if (state != State.FROZEN) {
                     Timber.d("#######D Entering FROZEN (newestPts=${nalRingBuffer.newestPts()} < targetPTS=$targetPTS)")
                     state = State.FROZEN
@@ -219,13 +228,14 @@ class DecoderCoroutine(
             // ── Exit FROZEN  and  Cursor initialization (safety net) ──────────────────────────
             // Data has arrived. Seek to the right I-frame and begin catch-up decode.
             if (state == State.FROZEN  ||  readIndex < 0) {
+                Timber.d("#######D xxxxxxxxxx2  state=$state  readIndex=$readIndex")
                 readIndex = seekToKeyframe(targetPTS)
                 if (readIndex < 0) {
                     // Buffer has data but no keyframes yet — retry after a short wait.
                     delay(FROZEN_SLEEP_MS)
                     continue
                 }
-                Timber.d("#######D Exiting FROZEN → CATCHING_UP at readIndex=$readIndex")
+                Timber.d("#######D Exiting FROZEN → PLAYING at readIndex=$readIndex")
                 state = State.PLAYING // State.CATCHING_UP
                 // Fall through: start submitting frames this iteration.
             }
@@ -278,7 +288,7 @@ class DecoderCoroutine(
             // has nothing ready, we just continue the outer loop rather than blocking here.
             // This keeps the state machine responsive and avoids starving the input path.
 //            state = dequeueAndRenderOneDecoderBuffer(decoder, state, targetPTS)
-            val bufDequeued = dequeueAndRenderOneDecoderBuffer(decoder)
+            val bufDequeued = dequeueAndRenderOneDecoderBuffer(decoder) //todo: make an extension fun of decoder
             if (! bufDequeued) {
                 delay(FROZEN_SLEEP_MS)
             }
@@ -318,12 +328,12 @@ class DecoderCoroutine(
 
         when {
             outputIndex >= 0 -> {
-                val isCodecConfig = (bufferInfo.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG) != 0
+                val bufTypeIsCodecConfig = (bufferInfo.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG) != 0
 
                 // Render iff we are in PLAYING and this is not an internal codec-config buffer.
                 // todo zzzzzzz remove the CATCHING_UP state (only when playing)
 //                val render = (currentState == State.PLAYING) && !isCodecConfig
-                val render = !isCodecConfig
+                val render = ! bufTypeIsCodecConfig
                 decoder.releaseOutputBuffer(outputIndex, render)
 
                 Timber.d("#######D dequeueAndRenderOneDecoderBuffer() outputIndex=$outputIndex")
@@ -378,14 +388,13 @@ class DecoderCoroutine(
             return false
         }
 
-        val destBuf = decoder.getInputBuffer(decoderBufIndex)
-            ?: run {
-                // Should not happen after a successful dequeue, but guard defensively.
-                // Queue an empty buffer to return the slot to the codec.
-                decoder.queueInputBuffer(decoderBufIndex, 0, 0, framePts, 0)
-                Timber.w("#######D decoder input buffer is null (Shouldn't happen!!!)")
-                return false
-            }
+        val destBuf = decoder.getInputBuffer(decoderBufIndex) ?: run {
+            // Should not happen after a successful dequeue, but guard defensively.
+            // Queue an empty buffer to return the slot to the codec.
+            decoder.queueInputBuffer(decoderBufIndex, 0, 0, framePts, 0)
+            Timber.w("#######D decoder input buffer is null (Shouldn't happen!!!)")
+            return false
+        }
 
         destBuf.clear() // todo: this is not needed because getInputBuffer() returns a cleared buf
         // Zero-copy read: dest is the codec's own native ByteBuffer, so no intermediate allocation
