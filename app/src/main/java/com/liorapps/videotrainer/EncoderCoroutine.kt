@@ -2,17 +2,23 @@ package com.liorapps.videotrainer
 
 import android.Manifest
 import android.content.Context
-import android.hardware.camera2.CameraCharacteristics
+import android.graphics.SurfaceTexture
 import android.hardware.camera2.CameraCaptureSession
+import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraDevice
 import android.hardware.camera2.CameraManager
+import android.hardware.camera2.params.OutputConfiguration
+import android.hardware.camera2.params.SessionConfiguration
 import android.media.MediaCodec
 import android.media.MediaCodecInfo
 import android.media.MediaFormat
 import android.os.Handler
 import android.os.HandlerThread
+import android.util.Range
+import android.util.Size
 import android.view.Surface
 import androidx.annotation.RequiresPermission
+import com.google.android.gms.common.util.concurrent.HandlerExecutor
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
@@ -23,6 +29,7 @@ import kotlinx.coroutines.withContext
 import timber.log.Timber
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
+
 
 /**
  * By Claude
@@ -93,24 +100,22 @@ class EncoderCoroutine(
     @RequiresPermission(Manifest.permission.CAMERA)
     suspend fun run(): Unit = withContext(Dispatchers.IO) {
 
+        var encoder: MediaCodec? = null
+        var encoderInputSurface: Surface? = null
+        var cameraDevice: CameraDevice? = null
         // Camera2 callbacks require a looper - use a dedicated HandlerThread.
         val cameraThread = HandlerThread("VideoTrainer-Camera").also { it.start() }
         val cameraHandler = Handler(cameraThread.looper)
 
-        var encoder: MediaCodec? = null
-        var encoderInputSurface: Surface? = null
-        var captureSession: CameraCaptureSession? = null
-        var cameraDevice: CameraDevice? = null
-
-        Timber.d("####### run()")
+        Timber.d("#######E run()")
         try {
             // ------------------------------------------------------------------
             // 1. Configure and start the MediaCodec encoder  (§5.1)
             // ------------------------------------------------------------------
             val format = MediaFormat.createVideoFormat(
                 MediaFormat.MIMETYPE_VIDEO_AVC,
-                VideoTrainerDefaults.VideoResolution.HD_1024x720().width,
-                VideoTrainerDefaults.VideoResolution.HD_1024x720().height,
+                VideoTrainerDefaults.VideoResolution.HD_1280x720().width,
+                VideoTrainerDefaults.VideoResolution.HD_1280x720().height,
             ).apply {
                 setInteger(
                     MediaFormat.KEY_COLOR_FORMAT,
@@ -124,17 +129,18 @@ class EncoderCoroutine(
                     MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR,
                 )
             }
+            Timber.d("#######E Required resolution: ${VideoTrainerDefaults.VideoResolution.HD_1280x720().width}x${VideoTrainerDefaults.VideoResolution.HD_1280x720().height}")
 
             encoder = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_VIDEO_AVC)
             encoder.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
 
             // Set up the Surface to receive raw video data for encoding
-            // createInputSurface() must be called before encoder.start()  (§5.1)
+            // createInputSurface() may only be called after configure and before start
             encoderInputSurface = encoder.createInputSurface()
 
-            Timber.d("####### calling encoder.start()")
+            Timber.d("#######E calling encoder.start()")
             encoder.start()
-            Timber.d("####### back from encoder.start()")
+            Timber.d("#######E back from encoder.start()")
 
             // ------------------------------------------------------------------
             // 2. Open the camera  (§4.1)
@@ -142,49 +148,47 @@ class EncoderCoroutine(
             val cameraManager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
 
             // TODO: LH cameraId should be a parameter passed into this function
-            val cameraId = selectBackCamera(cameraManager)
-            Timber.d("####### back from selectBackCamera()")
+            val cameraId = selectCamera(cameraManager)
+            Timber.d("#######E back from selectBackCamera()")
 
 //            Timber.d("####### vvvvvvvvvvvvvvvvvv calling openCamera()")
             cameraDevice = openCamera(cameraManager, cameraId, cameraHandler)
 //            Timber.d("####### ^^^^^^^^^^^^^^^^^^ back from openCamera()")
 
-            // ------------------------------------------------------------------
-            // 3. Create a CaptureSession targeting the encoder input surface
-            // ------------------------------------------------------------------
-            captureSession = createCaptureSession(cameraDevice, encoderInputSurface, cameraHandler)
-            Timber.d("####### back from createCaptureSession()")
 
             // ------------------------------------------------------------------
-            // 4. Submit a repeating capture request
+            // 3. Create a CaptureSession and submit a repeating capture request
             // ------------------------------------------------------------------
             val captureRequest =
                 cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_RECORD).apply {
                     addTarget(encoderInputSurface)
                 }.build()
 
+//            var captureSession: CameraCaptureSession? = null
+            val captureSession = createCaptureSession(cameraDevice, encoderInputSurface, cameraHandler)
+            Timber.d("#######E back from createCaptureSession()")
             captureSession.setRepeatingRequest(captureRequest, null, cameraHandler)
-            Timber.d("####### back from setRepeatingRequest()")
+            Timber.d("#######E back from setRepeatingRequest()")
 
 
             // ------------------------------------------------------------------
-            // 5. Drain the encoder output queue
+            // 4. Drain the encoder output queue
             // ------------------------------------------------------------------
             drainEncoder(encoder) // Loop until cancelled
-            Timber.d("####### back from drainEncoder()")
+            Timber.d("#######E back from drainEncoder()")
 
         } catch (e: CancellationException) {
-            Timber.d("####### Encoder coroutine cancelled")
+            Timber.d("#######E Encoder coroutine cancelled")
             // Normal coroutine cancellation - fall through to finally block.
             throw e
         } catch (e: Exception) {
-            Timber.d("####### Encoder coroutine failed")
+            Timber.d("#######E Encoder coroutine failed")
 //            onError(e)
             throw e
         } finally {
-            Timber.d("####### Encoder coroutine exiting")
+            Timber.d("#######E Encoder coroutine exiting")
             // ------------------------------------------------------------------
-            // Shutdown - order matters (§10.2):
+            // Shutdown - order matters:
             // Camera first, then encoder, to avoid frames arriving on a stopped codec.
             //
             // Note: We close the camera device directly. This automatically and 
@@ -194,12 +198,10 @@ class EncoderCoroutine(
             // already closing or disconnected.
             // ------------------------------------------------------------------
             runCatching { cameraDevice?.close(); cameraDevice = null }
-            captureSession = null
             runCatching { encoder?.stop() }
             runCatching { encoder?.release(); encoder = null }
             runCatching { encoderInputSurface?.release(); encoderInputSurface = null }
-            cameraThread.quitSafely()
-            cameraThread.join()
+            runCatching { cameraThread.quitSafely(); cameraThread.join() }
         }
     }
 
@@ -216,8 +218,7 @@ class EncoderCoroutine(
         var bufferCount = 0
 
         while (currentCoroutineContext().isActive) {
-            val outputIndex = encoder.dequeueOutputBuffer(bufferInfo, 0)
-            when (outputIndex) {
+            when (val outputIndex = encoder.dequeueOutputBuffer(bufferInfo, 0)) {
 
                 MediaCodec.INFO_TRY_AGAIN_LATER -> {
                     // No output available yet - we yield and retry
@@ -226,7 +227,7 @@ class EncoderCoroutine(
                 }
 
                 MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
-                    Timber.d("####### drainEncoder(): INFO_OUTPUT_FORMAT_CHANGED")
+                    Timber.d("#######E drainEncoder(): INFO_OUTPUT_FORMAT_CHANGED")
                     // Must call getOutputFormat() to satisfy the codec state machine;
                     // no further action needed for surface-to-surface output (§5.3).
                     val newFormat = encoder.outputFormat
@@ -235,8 +236,7 @@ class EncoderCoroutine(
 
                 else -> {
                     bufferCount++
-                    Timber.d("####### drainEncoder(): bufferCount=$bufferCount outputIndex=$outputIndex buffer_flags=0x${
-                        bufferInfo.flags.toString(16)}")
+//                    Timber.d("#######E drainEncoder(): bufferCount=$bufferCount outputIndex=$outputIndex buffer_flags=0x${bufferInfo.flags.toString(16)}")
                     if (outputIndex < 0) {
                         // Unexpected negative value - skip.
                         continue
@@ -245,6 +245,7 @@ class EncoderCoroutine(
                     processEncoderBuffer(encoder, outputIndex, bufferInfo)
 
                     if ((bufferInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
+                        Timber.w("#######E drainEncoder(): Got unexpected END_OF_STREAM")
                         break
                     }
                 }
@@ -268,7 +269,7 @@ class EncoderCoroutine(
         outputIndex: Int,
         bufferInfo: MediaCodec.BufferInfo,
     ) {
-        Timber.d("####### processEncoderBuffer() buffer_size=${bufferInfo.size} buffer_offset=${bufferInfo.offset}")
+//        Timber.d("#######E processEncoderBuffer() buffer_size=${bufferInfo.size} buffer_offset=${bufferInfo.offset}")
         try {
             // Skip empty buffers (e.g. EOS marker with no payload).
             if (bufferInfo.size == 0) return
@@ -281,7 +282,7 @@ class EncoderCoroutine(
             outputBuffer.limit(bufferInfo.offset + bufferInfo.size)
 
             if ((bufferInfo.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG) != 0) {
-                Timber.d("####### processEncoderBuffer() CODEC_CONFIG size=${bufferInfo.size}")
+                Timber.d("#######E processEncoderBuffer() CODEC_CONFIG size=${bufferInfo.size}")
                 // ---- SPS / PPS ----
                 // Copy to a dedicated ByteArray; do NOT write into the ring buffer (§3.3).
                 val configBytes = ByteArray(bufferInfo.size)
@@ -295,20 +296,17 @@ class EncoderCoroutine(
                 // to keep encoder and decoder on the same clock (§4.4).
                 val pts = System.nanoTime() / 1000L
                 val isKey = (bufferInfo.flags and MediaCodec.BUFFER_FLAG_KEY_FRAME) != 0
-                Timber.d("####### processEncoderBuffer() normal NAL isKey=$isKey")
+//                Timber.d("#######E processEncoderBuffer() normal NAL isKey=$isKey")
 
 //                val nalBytes = ByteArray(bufferInfo.size)
 //                outputBuffer.get(nalBytes)
 //                ringBuffer.writeNal(pts, nalBytes, isKey)
                 ringBuffer.writeNal(pts, outputBuffer, isKey)
-//                Timber.d("####### processEncoderBuffer() back from ringBuffer.writeNal()")
+//                Timber.d("#######E processEncoderBuffer() back from ringBuffer.writeNal()")
             }
-
         } finally {
-            // Always release - render=false because the encoder outputs to the ring buffer,
-            // not to any display surface.
             encoder.releaseOutputBuffer(outputIndex, false)
-//            Timber.d("####### processEncoderBuffer() back from encoder.releaseOutputBuffer()")
+//            Timber.d("#######E processEncoderBuffer() back from encoder.releaseOutputBuffer()")
         }
     }
 
@@ -316,24 +314,55 @@ class EncoderCoroutine(
     // Camera2 helpers
     // -------------------------------------------------------------------------
 
+    private fun logCameraCharacteristics(cameraChars: CameraCharacteristics) {
+        val map = cameraChars.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
+        val videoSizes: Array<Size>? = map?.getOutputSizes(SurfaceTexture::class.java)
+        videoSizes?.forEach { size ->
+            Timber.d("  Supported Resolution: ${size.width} x ${size.height}")
+        }
+
+        // Retrieve the list of supported FPS ranges
+        val fpsRanges: Array<Range<Int>>? = cameraChars.get(
+            CameraCharacteristics.CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES
+        )
+        fpsRanges?.forEach { range ->
+            // Example: [15, 30] means the camera can vary between 15 and 30 fps
+            // Example: [30, 30] means a fixed frame rate of 30 fps
+            Timber.d("  Supported FPS range: ${range.lower} - ${range.upper}")
+        }
+
+
+    }
     /**
      * Returns the ID of the first back-facing camera, or the first available
      * camera if no back-facing camera is found.
      */
-    private fun selectBackCamera(manager: CameraManager): String {
+    private fun selectCamera(manager: CameraManager): String {
+
+
+
+        Timber.d("#######E Device has ${manager.cameraIdList.size} cameras")
+        for (cameraId in manager.cameraIdList) {
+            val chars: CameraCharacteristics = manager.getCameraCharacteristics(cameraId)
+            Timber.d("#######E camera ID=$cameraId  Characteristics: $chars")
+            logCameraCharacteristics(chars)
+        }
+
+
+
         val ids = manager.cameraIdList
-        Timber.d("####### selectBackCamera() available camera IDs=$ids")
+        Timber.d("#######E selectCamera() available camera IDs=$ids")
         for (id in ids) {
             val characteristics = manager.getCameraCharacteristics(id)
-            Timber.d("####### selectBackCamera() camera ID=$id")
-            Timber.d("#######   selectBackCamera() camera LENS_FACING=${characteristics.get(CameraCharacteristics.LENS_FACING)}")
+            Timber.d("#######E selectCamera() camera ID=$id")
+            Timber.d("#######E   selectCamera() camera LENS_FACING=${characteristics.get(CameraCharacteristics.LENS_FACING)}")
         }
 
         val cameraId = ids.firstOrNull { id ->
             manager.getCameraCharacteristics(id)
                 .get(CameraCharacteristics.LENS_FACING) == CameraCharacteristics.LENS_FACING_FRONT
         } ?: ids.first()
-        Timber.d("####### selectBackCamera() cameraId=$cameraId")
+        Timber.d("#######E selectCamera() selected cameraId: $cameraId")
         return cameraId
     }
 
@@ -407,9 +436,15 @@ class EncoderCoroutine(
         handler: Handler,
     ): CameraCaptureSession = suspendCancellableCoroutine { cont ->
         Timber.d("#######E createCaptureSession()")
-        // TODO: LH this is obsolete. see: https://developer.android.com/reference/android/hardware/camera2/CameraDevice#createCaptureSession(java.util.List%3Candroid.view.Surface%3E,%20android.hardware.camera2.CameraCaptureSession.StateCallback,%20android.os.Handler)
-        device.createCaptureSession(
-            listOf(surface),
+
+//        val outputs: MutableList<OutputConfiguration?> = ArrayList<OutputConfiguration?>()
+//        outputs.add(OutputConfiguration(surface))
+        val outputs: List<OutputConfiguration> = arrayListOf(OutputConfiguration(surface))
+
+        val cameraSessionConfig = SessionConfiguration(
+            /*sessionType*/ SessionConfiguration.SESSION_REGULAR,
+            /*outputs*/ outputs,
+            /*executor*/HandlerExecutor(handler.looper),
             object : CameraCaptureSession.StateCallback() {
                 override fun onConfigured(session: CameraCaptureSession) {
                     Timber.d("#######E createCaptureSession() 111")
@@ -420,17 +455,58 @@ class EncoderCoroutine(
                         session.close()
                     }
                 }
-
                 override fun onConfigureFailed(session: CameraCaptureSession) {
                     Timber.d("#######E createCaptureSession() 222")
                     if (cont.isActive) {
                         cont.resumeWithException(
-                            RuntimeException("CaptureSession configuration failed")
+                            RuntimeException("CameraCaptureSession configuration failed")
                         )
                     }
                 }
+
+                override fun onReady(session: CameraCaptureSession) {
+                    super.onReady(session)
+                }
+                override fun onActive(session: CameraCaptureSession) {
+                    super.onActive(session)
+                }
+                override fun onClosed(session: CameraCaptureSession) {
+                    super.onClosed(session)
+                }
+                override fun onCaptureQueueEmpty(session: CameraCaptureSession) {
+                    super.onCaptureQueueEmpty(session)
+                }
+                override fun onSurfacePrepared(session: CameraCaptureSession, surface: Surface) {
+                    super.onSurfacePrepared(session, surface)
+                }
             },
-            handler,
         )
+        device.createCaptureSession(cameraSessionConfig)
+
+//        // TODO: LH this is obsolete. see: https://developer.android.com/reference/android/hardware/camera2/CameraDevice#createCaptureSession(java.util.List%3Candroid.view.Surface%3E,%20android.hardware.camera2.CameraCaptureSession.StateCallback,%20android.os.Handler)
+//        device.createCaptureSession(
+//            listOf(surface),
+//            object : CameraCaptureSession.StateCallback() {
+//                override fun onConfigured(session: CameraCaptureSession) {
+//                    Timber.d("#######E createCaptureSession() 111")
+//                    if (cont.isActive) {
+//                        Timber.d("####### createCaptureSession() got session=$session")
+//                        cont.resume(session)
+//                    } else {
+//                        session.close()
+//                    }
+//                }
+//
+//                override fun onConfigureFailed(session: CameraCaptureSession) {
+//                    Timber.d("#######E createCaptureSession() 222")
+//                    if (cont.isActive) {
+//                        cont.resumeWithException(
+//                            RuntimeException("CaptureSession configuration failed")
+//                        )
+//                    }
+//                }
+//            },
+//            handler,
+//        )
     }
 }

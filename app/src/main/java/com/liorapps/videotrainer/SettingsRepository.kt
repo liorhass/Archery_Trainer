@@ -14,7 +14,7 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
 
     data class Settings (
         val delaySec: Int    = VideoTrainerDefaults.DEFAULT_DELAY_SEC,
-        val videoResolution: VideoTrainerDefaults.VideoResolution = VideoTrainerDefaults.VideoResolution.HD_1024x720(),
+        val videoResolution: VideoTrainerDefaults.VideoResolution = VideoTrainerDefaults.VideoResolution.HD_1280x720(),
 //        val videoWidth: Int  = VideoTrainerDefaults.VIDEO_WIDTH,
 //        val videoHeight: Int = VideoTrainerDefaults.VIDEO_HEIGHT,
         val frameRate: Int   = VideoTrainerDefaults.FRAME_RATE,
@@ -40,7 +40,7 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
             delaySec    = prefs[DELAY_SEC_KEY] ?: VideoTrainerDefaults.DEFAULT_DELAY_SEC,
             videoResolution = prefs[VIDEO_RESOLUTION_KEY] ?.let {
                 Json.decodeFromString<VideoTrainerDefaults.VideoResolution>(it)
-            } ?: VideoTrainerDefaults.VideoResolution.HD_1024x720(),
+            } ?: VideoTrainerDefaults.VideoResolution.HD_1280x720(),
 //            videoWidth  = prefs[VIDEO_WIDTH_KEY] ?: VideoTrainerDefaults.VIDEO_WIDTH,
 //            videoHeight = prefs[VIDEO_HEIGH_KEY] ?: VideoTrainerDefaults.VIDEO_HEIGHT,
             frameRate   = prefs[FRAME_RATE_KEY] ?: VideoTrainerDefaults.FRAME_RATE,

@@ -96,7 +96,7 @@ class NalRingBuffer(
      * @throws IllegalArgumentException if [nalBytes] is larger than the entire data buffer.
      */
     fun writeNal(pts: Long, nalBytes: ByteBuffer, isKey: Boolean) {
-        Timber.d("#######NRB writeNal() pts=$pts buf_len=${nalBytes.remaining()} isKey=$isKey")
+//        Timber.d("#######NRB writeNal() pts=$pts buf_len=${nalBytes.remaining()} isKey=$isKey")
 //        require(nalBytes.size <= bufferSizeBytes) {
 //            "NAL unit size ${nalBytes.size} exceeds buffer capacity $bufferSizeBytes"
 //        }

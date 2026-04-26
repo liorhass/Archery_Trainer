@@ -49,7 +49,8 @@ fun MainScreenContent(
     viewModel: MainViewModel,
     onNavigateToSettings: () -> Unit
 ) {
-    val videoSize by viewModel.videoSize.collectAsStateWithLifecycle()
+    val videoResolution by viewModel.videoResolution.collectAsStateWithLifecycle()
+    val settings by viewModel.settingsFlow.collectAsStateWithLifecycle()
     val isFullScreen = viewModel.isFullScreen
 
     // Set the window as necessary (e.g. to show or hide system bars)
@@ -71,7 +72,7 @@ fun MainScreenContent(
 
         if (isFullScreen) {
             VideoPlayer(
-                videoSize = videoSize,
+                videoResolution = videoResolution,
                 onSurfaceReady = viewModel::onSurfaceReady,
                 onSurfaceDestroyed = viewModel::onSurfaceDestroyed,
             )
@@ -100,7 +101,7 @@ fun MainScreenContent(
                         .padding(innerPadding)
                 ) {
                     VideoPlayer(
-                        videoSize = videoSize,
+                        videoResolution = videoResolution,
                         onSurfaceReady = viewModel::onSurfaceReady,
                         onSurfaceDestroyed = viewModel::onSurfaceDestroyed,
                         modifier = Modifier,
@@ -135,8 +136,8 @@ fun MainScreenContent(
             isLandscape = isLandscape,
             isFullScreen = isFullScreen,
             isPlaying = viewModel.playbackState == PlaybackState.PLAYING,
-            delay = viewModel.delaySec,
-            onTogglePlayback = viewModel::togglePlayback,
+            delay = settings.delaySec,
+            onTogglePlayback = viewModel::onTogglePlayback,
             onToggleFullScreen = viewModel::toggleIsFullScreen,
             onDelayChange = viewModel::onDelayChange,
         )

@@ -169,8 +169,8 @@ class DecoderCoroutine(
         // The decoder learns everything else (profile, level, colour space) from the SPS/PPS.
         val videoFormat = MediaFormat.createVideoFormat(
             MediaFormat.MIMETYPE_VIDEO_AVC,
-            VideoTrainerDefaults.VideoResolution.HD_1024x720().width, // todo from settings
-            VideoTrainerDefaults.VideoResolution.HD_1024x720().height, // todo from settings
+            VideoTrainerDefaults.VideoResolution.HD_1280x720().width, // todo from settings
+            VideoTrainerDefaults.VideoResolution.HD_1280x720().height, // todo from settings
         )
         decoder.reset()
         decoder.configure(videoFormat, outputSurface, /* crypto = */ null, /* flags = */ 0)
@@ -271,7 +271,7 @@ class DecoderCoroutine(
             // target - we simply wait for wall-clock time to advance until targetPTS catches up
             val framePts = nalRingBuffer.getPtsOfNal(readIndex)
             if (framePts != Long.MIN_VALUE  &&  framePts <= targetPTS) {
-                Timber.d("#######D Submitting frame state=$state targetPTS=$targetPTS framePts=$framePts readIndex=$readIndex")
+//                Timber.d("#######D Submitting frame state=$state targetPTS=$targetPTS framePts=$framePts readIndex=$readIndex")
                 val submitted = trySubmitFrame(decoder, readIndex, framePts)
                 if (submitted) {
                     // Advance the cursor. nextIndex() wraps in ring order.
@@ -288,8 +288,8 @@ class DecoderCoroutine(
             // has nothing ready, we just continue the outer loop rather than blocking here.
             // This keeps the state machine responsive and avoids starving the input path.
 //            state = dequeueAndRenderOneDecoderBuffer(decoder, state, targetPTS)
-            val bufDequeued = dequeueAndRenderOneDecoderBuffer(decoder) //todo: make an extension fun of decoder
-            if (! bufDequeued) {
+            val frameTimeDeviation = decoder.dequeueAndRenderOneDecoderBuffer(targetPTS)
+            if (frameTimeDeviation == Long.MIN_VALUE) {
                 delay(FROZEN_SLEEP_MS)
             }
         }
@@ -316,27 +316,29 @@ class DecoderCoroutine(
      * Returns the (possibly updated) [State].
      * Returns an indication whether a buffer was dequeue or not
      */
-    private fun dequeueAndRenderOneDecoderBuffer(
-        decoder: MediaCodec,
+    private fun MediaCodec.dequeueAndRenderOneDecoderBuffer(
+//        decoder: MediaCodec,
 //        state: State,
-//        targetPTS: Long,
-    ): Boolean {
+        targetPTS: Long,
+    ): Long {
 //        var currentState = state
 
         // Timeout = 0: return immediately if no output buffer is ready.
-        val outputIndex = decoder.dequeueOutputBuffer(bufferInfo /*[out]*/, /* timeoutUs = */ 0)
+        val outputIndex = this.dequeueOutputBuffer(bufferInfo /*[out]*/, /* timeoutUs = */ 0)
+        var frameTimeDeviation: Long = Long.MIN_VALUE
 
         when {
             outputIndex >= 0 -> {
                 val bufTypeIsCodecConfig = (bufferInfo.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG) != 0
+                frameTimeDeviation = targetPTS - bufferInfo.presentationTimeUs
 
                 // Render iff we are in PLAYING and this is not an internal codec-config buffer.
                 // todo zzzzzzz remove the CATCHING_UP state (only when playing)
 //                val render = (currentState == State.PLAYING) && !isCodecConfig
                 val render = ! bufTypeIsCodecConfig
-                decoder.releaseOutputBuffer(outputIndex, render)
+                this.releaseOutputBuffer(outputIndex, render)
 
-                Timber.d("#######D dequeueAndRenderOneDecoderBuffer() outputIndex=$outputIndex")
+//                Timber.d("#######D dequeueAndRenderOneDecoderBuffer() outputIndex=$outputIndex targetPTS-bufPTS=$frameTimeDeviation")
                 // CATCHING_UP → PLAYING transition: the decoded PTS has reached our target.
                 // Any subsequent frames will be rendered to the surface normally.
 //                if (currentState == State.CATCHING_UP && bufferInfo.presentationTimeUs >= targetPTS) {
@@ -354,7 +356,7 @@ class DecoderCoroutine(
                 // The MediaCodec spec requires getOutputFormat() to be called here.
                 // For surface-output decoding the format change is handled by the hardware path;
                 // there is no further action needed on our side.
-                val newFormat = decoder.outputFormat
+                val newFormat = this.outputFormat
                 Timber.d("Output format changed: $newFormat")
             }
 
@@ -362,7 +364,8 @@ class DecoderCoroutine(
         }
 
 //        return currentState
-        return outputIndex >= 0
+//        return outputIndex >= 0
+        return frameTimeDeviation
     }
 
     // -----------------------------------------------------------------------------------------
@@ -397,7 +400,7 @@ class DecoderCoroutine(
         }
 
         destBuf.clear() // todo: this is not needed because getInputBuffer() returns a cleared buf
-        // Zero-copy read: dest is the codec's own native ByteBuffer, so no intermediate allocation
+        // Native-to-native copy: dest is the codec's own native ByteBuffer, so no intermediate allocation
         val nalSize = nalRingBuffer.readNal(index, destBuf)
 
         if (nalSize <= 0) {
@@ -415,7 +418,7 @@ class DecoderCoroutine(
             /* size */ nalSize,
             framePts,
             flags)
-        Timber.d("#######D data submitted to decoder. index=$index pts=$framePts bytesWritten=$nalSize")
+//        Timber.d("#######D data submitted to decoder. index=$index pts=$framePts bytesWritten=$nalSize")
         return true
     }
 

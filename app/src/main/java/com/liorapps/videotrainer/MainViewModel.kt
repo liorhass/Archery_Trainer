@@ -152,7 +152,7 @@ class MainViewModel(application: Application, val settingsRepo: SettingsReposito
     private var decoderJob: Job? = null
 
     private val _videoResolution = MutableStateFlow<VideoTrainerDefaults.VideoResolution>(
-        VideoTrainerDefaults.VideoResolution.HD_1024x720()
+        VideoTrainerDefaults.VideoResolution.HD_1280x720()
     )
     val videoResolution: StateFlow<VideoTrainerDefaults.VideoResolution> = _videoResolution.asStateFlow()
 

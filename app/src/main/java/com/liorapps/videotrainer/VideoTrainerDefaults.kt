@@ -14,7 +14,7 @@ object VideoTrainerDefaults {
     @Serializable
     sealed class VideoResolution(val width: Int, val height: Int) {
         @Serializable class SD_640x480(): VideoResolution(640, 480)
-        @Serializable class HD_1024x720(): VideoResolution(1024, 720)
+        @Serializable class HD_1280x720(): VideoResolution(1280, 720)
         @Serializable class FHD_1920x1080(): VideoResolution(1920, 1080)
         @Serializable class QHD_2560x1440(): VideoResolution(2560, 1440)
         @Serializable class UHD_3840x2160(): VideoResolution(3840, 2160)
@@ -22,7 +22,7 @@ object VideoTrainerDefaults {
         override fun toString(): String { return "${width}x${height}" }
 
     }
-    val VIDEO_RESOLUTION = VideoResolution.HD_1024x720()  // Default resolution is 720p
+    val VIDEO_RESOLUTION = VideoResolution.HD_1280x720()  // Default resolution is 720p
 
 //    /** Frame width in pixels. Switch to 1920 for 1080p. */
 //    const val VIDEO_WIDTH: Int = 1280

@@ -16,10 +16,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.liorapps.videotrainer.MainViewModel
+import com.liorapps.videotrainer.VideoTrainerDefaults
 
 @Composable
 fun VideoPlayer(
-    videoSize: MainViewModel.VideoSize,
+    videoResolution: VideoTrainerDefaults.VideoResolution,
     onSurfaceReady: (Surface) -> Unit,
     onSurfaceDestroyed: () -> Unit,
     modifier: Modifier = Modifier,
@@ -30,9 +31,9 @@ fun VideoPlayer(
     ) {
         // Recompute whenever the video dimensions or the available box size change
         // maxWidth and max Height come from BoxWithConstraints
-        val surfaceModifier = remember(videoSize, maxWidth, maxHeight) {
-            if (videoSize.width > 0 && videoSize.height > 0) {
-                val videoAspect = videoSize.width.toFloat() / videoSize.height.toFloat()
+        val surfaceModifier = remember(videoResolution, maxWidth, maxHeight) {
+            if (videoResolution.width > 0 && videoResolution.height > 0) {
+                val videoAspect = videoResolution.width.toFloat() / videoResolution.height.toFloat()
                 val boxAspect   = maxWidth.value / maxHeight.value   // both in dp → ratio is unit-less
 
                 if (videoAspect > boxAspect) {
