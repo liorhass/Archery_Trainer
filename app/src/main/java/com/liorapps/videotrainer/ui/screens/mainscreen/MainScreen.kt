@@ -79,6 +79,26 @@ fun MainScreenContent(
                 onSurfaceReady = viewModel::onSurfaceReady,
                 onSurfaceDestroyed = viewModel::onSurfaceDestroyed,
             )
+
+            ControlBar(  // Adaptive Control Bar
+                modifier = if (isLandscape) {
+                    Modifier
+                        .align(Alignment.CenterEnd)
+                        .padding(start = 0.dp, top = 0.dp, bottom = 0.dp, end = 12.dp)
+                } else {
+                    Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(start = 0.dp, top = 0.dp, bottom = 12.dp, end = 0.dp)
+                },
+                isLandscape = isLandscape,
+                isFullScreen = true,
+                isPlaying = viewModel.playbackState == PlaybackState.PLAYING,
+                delay = settings.delaySec,
+                onTogglePlayback = viewModel::onTogglePlayback,
+                onToggleFullScreen = viewModel::toggleIsFullScreen,
+                onDelayChange = viewModel::onDelayChange,
+            )
+
 //            // Exit full-screen button (top-end corner, shown transiently)
 //            IconButton(
 //                onClick = { viewModel.setIsFullScreen(false) },
@@ -109,6 +129,24 @@ fun MainScreenContent(
                         onSurfaceDestroyed = viewModel::onSurfaceDestroyed,
                     )
 
+                    ControlBar(  // Adaptive Control Bar
+                        modifier = if (isLandscape) {
+                            Modifier
+                                .align(Alignment.CenterEnd)
+                                .padding(start = 0.dp, top = 0.dp, bottom = 0.dp, end = 12.dp)
+                        } else {
+                            Modifier
+                                .align(Alignment.BottomCenter)
+                                .padding(start = 0.dp, top = 0.dp, bottom = 12.dp, end = 0.dp)
+                        },
+                        isLandscape = isLandscape,
+                        isFullScreen = false,
+                        isPlaying = viewModel.playbackState == PlaybackState.PLAYING,
+                        delay = settings.delaySec,
+                        onTogglePlayback = viewModel::onTogglePlayback,
+                        onToggleFullScreen = viewModel::toggleIsFullScreen,
+                        onDelayChange = viewModel::onDelayChange,
+                    )
 //                    // Enter full-screen button (bottom-end corner of the video)
 //                    IconButton(
 //                        onClick = { viewModel.setIsFullScreen(true) },
@@ -123,26 +161,6 @@ fun MainScreenContent(
                 }
             }
         }
-
-        // Adaptive Control Bar
-        ControlBar(
-            modifier = if (isLandscape) {
-                Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(24.dp)
-            } else {
-                Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(24.dp)
-            },
-            isLandscape = isLandscape,
-            isFullScreen = isFullScreen,
-            isPlaying = viewModel.playbackState == PlaybackState.PLAYING,
-            delay = settings.delaySec,
-            onTogglePlayback = viewModel::onTogglePlayback,
-            onToggleFullScreen = viewModel::toggleIsFullScreen,
-            onDelayChange = viewModel::onDelayChange,
-        )
     }
 }
 
@@ -320,7 +338,7 @@ fun ControlBar(
     Surface(
         modifier = modifier,
         shape = MaterialTheme.shapes.extraLarge,
-        color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.8f),
+        color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.5f),
         tonalElevation = 4.dp
     ) {
         if (isLandscape) {
@@ -359,7 +377,6 @@ fun ControlBar(
 
 @Composable
 fun ControlIcons(
-//    isLandscape: Boolean,
     isPlaying: Boolean,
     isFullScreen: Boolean,
     delay: Int,
@@ -367,27 +384,27 @@ fun ControlIcons(
     onToggleFullScreen: () -> Unit,
     onDelayChange: (Int) -> Unit,
 ) {
+    // Play/Pause button
     IconButton(onClick = onTogglePlayback) {
         Icon(
             imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+            tint = MaterialTheme.colorScheme.onSurface,
             contentDescription = if (isPlaying) "Pause" else "Play"
         )
     }
-//    IconButton(onClick = onSwitchCamera) {
-//        Icon(Icons.Rounded.FlipCameraAndroid, contentDescription = "Switch Camera")
-//    }
 
     var showDelayDialog by remember { mutableStateOf(false) }
-
     TextButton(onClick = { showDelayDialog = true }) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
                 text = "Delay",
-                style = MaterialTheme.typography.labelSmall
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurface,
             )
             Text(
                 text = "$delay s",
-                style = MaterialTheme.typography.bodyLarge
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface,
             )
         }
     }
@@ -395,7 +412,8 @@ fun ControlIcons(
     IconButton(onClick = onToggleFullScreen) {
         Icon(
             imageVector = if (isFullScreen) Icons.Rounded.FullscreenExit else Icons.Rounded.Fullscreen,
-            contentDescription = if (isFullScreen) "Exit full screen" else "Full screen"
+            contentDescription = if (isFullScreen) "Exit full screen" else "Full screen",
+            tint = MaterialTheme.colorScheme.onSurface,
         )
     }
 

@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import timber.log.Timber
@@ -156,6 +157,18 @@ class MainViewModel(application: Application, val settingsRepo: SettingsReposito
         VideoTrainerDefaults.VideoResolution.HD_1280x720()
     )
     val videoResolution: StateFlow<VideoTrainerDefaults.VideoResolution> = _videoResolution.asStateFlow()
+
+    private val _singleFrameScrollbarPosition = MutableStateFlow(0f)
+    val singleFrameScrollbarPosition: StateFlow<Float> = _singleFrameScrollbarPosition.asStateFlow()
+    init {
+        viewModelScope.launch {
+            // collectLatest handles the "conflation" (disregard old values when a new one arrives)
+            _singleFrameScrollbarPosition.collectLatest { position ->
+                Timber.d("singleFrameScrollbarPosition changed. position=$position")
+//                processNewPosition(position)
+            }
+        }
+    }
 
     // ─────────────────────────────────────────────────────────────────────────
     // Public API — called from the UI / Compose lifecycle
@@ -434,6 +447,17 @@ class MainViewModel(application: Application, val settingsRepo: SettingsReposito
     fun onDelayChange(value: Int) {
         val newDelaySec = value.coerceIn(VideoTrainerDefaults.MIN_DELAY_SEC, VideoTrainerDefaults.MAX_DELAY_SEC)
         viewModelScope.launch { settingsRepo.setDelaySec(newDelaySec) }
+    }
+
+    fun onSetSingleFrameLocation(value: Float) {
+        Timber.d("onSetSingleFrameLocation() value=$value")
+        _singleFrameScrollbarPosition.value = value
+    }
+    fun onSingleFrameForward() {
+        Timber.d("onSingleFrameForward()")
+    }
+    fun onSingleFrameBackward() {
+        Timber.d("onSingleFrameBackward()")
     }
 
     fun navigateTo(key: NavKey) {
