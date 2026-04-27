@@ -123,8 +123,9 @@ class MainViewModel(application: Application, val settingsRepo: SettingsReposito
      * reads it; [DecoderCoroutine.waitForCodecConfig] polls with coroutine [delay] calls,
      * whose suspension points provide the necessary visibility across threads.
      */
-    @Volatile
-    private var codecConfigDataHolder: Array<ByteArray?> = arrayOfNulls(1)
+    private val cameraAndCodecConfig = CameraAndCodecConfig()
+//    @Volatile
+//    private var codecConfigDataHolder: Array<ByteArray?> = arrayOfNulls(1)
 
     /**
      * Signals the decoder to execute the jump sequence (§9) when the user reduces [delaySec].
@@ -272,7 +273,7 @@ class MainViewModel(application: Application, val settingsRepo: SettingsReposito
 
         // Discard any stale ring-buffer data and codec config from a prior session.
         ringBuffer.reset()
-        codecConfigDataHolder[0] = null
+        cameraAndCodecConfig.invalidateCodecConfig()
         errorMessage = null
 
 //        playbackState = PlaybackState.PLAYING
@@ -329,7 +330,8 @@ class MainViewModel(application: Application, val settingsRepo: SettingsReposito
                 EncoderCoroutine(
                     context               = getApplication(),
                     ringBuffer            = ringBuffer,
-                    codecConfigDataHolder = codecConfigDataHolder,
+                    cameraAndCodecConfig  = cameraAndCodecConfig,
+//                    codecConfigDataHolder = codecConfigDataHolder,
 //                    onError               = ::handleEncoderError,
                 ).run()
             } catch (e: CancellationException) {
@@ -349,7 +351,7 @@ class MainViewModel(application: Application, val settingsRepo: SettingsReposito
                 Timber.d("#######VM launchDecoderJob()")
                 DecoderCoroutine(
                     nalRingBuffer         = ringBuffer,
-                    codecConfigDataHolder = codecConfigDataHolder,
+                    cameraAndCodecConfig  = cameraAndCodecConfig,
                     outputSurface         = surface,
                     delaySecProvider      = { settingsFlow.value.delaySec },   // reads @Volatile-backed Compose state
                     jumpChannel           = jumpChannel,
@@ -451,6 +453,10 @@ class MainViewModel(application: Application, val settingsRepo: SettingsReposito
         }
     }
 
+    fun onScreenRotationUpdate(newScreenRotationDegrees: Int) {
+        Timber.d("onScreenRotationUpdate() orientation=$newScreenRotationDegrees")
+        cameraAndCodecConfig.screenOrientation = newScreenRotationDegrees
+    }
 
 
     //todo lh: 2brm

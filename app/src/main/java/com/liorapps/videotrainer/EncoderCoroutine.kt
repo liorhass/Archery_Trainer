@@ -83,7 +83,8 @@ import kotlin.coroutines.resumeWithException
 class EncoderCoroutine(
     private val context: Context,
     private val ringBuffer: NalRingBuffer,
-    private val codecConfigDataHolder: Array<ByteArray?>,   // index 0 = codecConfigData
+    private val cameraAndCodecConfig: CameraAndCodecConfig,
+//    private val codecConfigDataHolder: Array<ByteArray?>,   // index 0 = codecConfigData
 //    private val onError: (Throwable) -> Unit = {},
 ) {
 
@@ -288,7 +289,7 @@ class EncoderCoroutine(
                 val configBytes = ByteArray(bufferInfo.size)
                 outputBuffer.get(configBytes)
                 // Visible to the decoder coroutine via @Volatile on the holder field (§11).
-                codecConfigDataHolder[0] = configBytes
+                cameraAndCodecConfig.codecConfigDataHolder[0] = configBytes
 
             } else {
                 // ---- Normal NAL unit ----
@@ -362,7 +363,9 @@ class EncoderCoroutine(
             manager.getCameraCharacteristics(id)
                 .get(CameraCharacteristics.LENS_FACING) == CameraCharacteristics.LENS_FACING_FRONT
         } ?: ids.first()
-        Timber.d("#######E selectCamera() selected cameraId: $cameraId")
+        val chars: CameraCharacteristics = manager.getCameraCharacteristics(cameraId)
+        val sensorOrientation = chars.get(CameraCharacteristics.SENSOR_ORIENTATION) ?: 270
+        Timber.d("#######E selectCamera() selected cameraId: $cameraId  sensorOrientation: $sensorOrientation")
         return cameraId
     }
 
@@ -376,13 +379,13 @@ class EncoderCoroutine(
         cameraId: String,
         handler: Handler,
     ): CameraDevice = suspendCancellableCoroutine { cont ->
-        Timber.d("####### openCamera()")
+        Timber.d("#######E openCamera()")
         manager.openCamera(
             cameraId,
             object : CameraDevice.StateCallback() {
                 override fun onOpened(device: CameraDevice) {
                     if (cont.isActive) {
-                        Timber.d("####### openCamera() camera=$device")
+                        Timber.d("#######E openCamera() camera=$device")
                         cont.resume(device)
                     } else {
                         device.close()
@@ -392,7 +395,7 @@ class EncoderCoroutine(
 
                 override fun onDisconnected(device: CameraDevice) {
                     device.close()
-                    Timber.w("####### ####### openCamera() onDisconnected cont.isActive=${cont.isActive}")
+                    Timber.w("####### #######E openCamera() onDisconnected cont.isActive=${cont.isActive}")
 //                    if (cont.isActive) {
                         cont.resumeWithException(
                             IllegalStateException("Camera disconnected during open. cameraId=$cameraId")
@@ -449,7 +452,7 @@ class EncoderCoroutine(
                 override fun onConfigured(session: CameraCaptureSession) {
                     Timber.d("#######E createCaptureSession() 111")
                     if (cont.isActive) {
-                        Timber.d("####### createCaptureSession() got session=$session")
+                        Timber.d("#######E createCaptureSession() got session=$session")
                         cont.resume(session)
                     } else {
                         session.close()

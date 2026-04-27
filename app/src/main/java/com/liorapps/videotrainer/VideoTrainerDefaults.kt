@@ -12,7 +12,7 @@ object VideoTrainerDefaults {
     // -------------------------------------------------------------------------
 
     @Serializable
-    sealed class VideoResolution(val width: Int, val height: Int) {
+    open class VideoResolution(val width: Int, val height: Int) {
         @Serializable class SD_640x480(): VideoResolution(640, 480)
         @Serializable class HD_1280x720(): VideoResolution(1280, 720)
         @Serializable class FHD_1920x1080(): VideoResolution(1920, 1080)

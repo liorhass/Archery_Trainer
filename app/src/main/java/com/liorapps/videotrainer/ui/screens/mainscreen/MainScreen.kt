@@ -53,13 +53,16 @@ fun MainScreenContent(
     val settings by viewModel.settingsFlow.collectAsStateWithLifecycle()
     val isFullScreen = viewModel.isFullScreen
 
-    // Set the window as necessary (e.g. to show or hide system bars)
+    // A launchedEffect to set the window as necessary (e.g. to show or hide system bars)
     FullScreenEffect(isFullScreen)
 
     // When in full-screen we want the back button to simply exit full-screen
     BackHandler(enabled = isFullScreen) {
         viewModel.navigateBack()
     }
+
+    // A launchedEffect that updates the viewModel about the current screen orientation
+    ScreenOrientationEffect(isFullScreen, viewModel::onScreenRotationUpdate)
 
     Box(
         modifier = Modifier
@@ -76,20 +79,20 @@ fun MainScreenContent(
                 onSurfaceReady = viewModel::onSurfaceReady,
                 onSurfaceDestroyed = viewModel::onSurfaceDestroyed,
             )
-            // Exit full-screen button (top-end corner, shown transiently)
-            IconButton(
-                onClick = { viewModel.setIsFullScreen(false) },
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(8.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.FullscreenExit,
-                    contentDescription = "Exit full screen",
-                    tint = Color.White
-                )
-            }
-        } else {
+//            // Exit full-screen button (top-end corner, shown transiently)
+//            IconButton(
+//                onClick = { viewModel.setIsFullScreen(false) },
+//                modifier = Modifier
+//                    .align(Alignment.TopEnd)
+//                    .padding(8.dp)
+//            ) {
+//                Icon(
+//                    imageVector = Icons.Default.FullscreenExit,
+//                    contentDescription = "Exit full screen",
+//                    tint = Color.White
+//                )
+//            }
+        } else { // Not at full screen
             Scaffold(
                 modifier = Modifier.fillMaxSize(),
                 topBar = { TopBar(onNavigateToSettings) }
@@ -104,7 +107,6 @@ fun MainScreenContent(
                         videoResolution = videoResolution,
                         onSurfaceReady = viewModel::onSurfaceReady,
                         onSurfaceDestroyed = viewModel::onSurfaceDestroyed,
-                        modifier = Modifier,
                     )
 
 //                    // Enter full-screen button (bottom-end corner of the video)

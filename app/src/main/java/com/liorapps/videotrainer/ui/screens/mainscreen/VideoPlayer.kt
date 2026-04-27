@@ -13,10 +13,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.liorapps.videotrainer.MainViewModel
 import com.liorapps.videotrainer.VideoTrainerDefaults
+import timber.log.Timber
 
 @Composable
 fun VideoPlayer(
@@ -29,13 +33,25 @@ fun VideoPlayer(
         modifier = modifier.fillMaxSize(),
         contentAlignment = Alignment.Center,
     ) {
+        val context = LocalContext.current
+        val screenRotationDegrees = remember(LocalConfiguration.current) {
+            computeScreenRotation(context)
+        }
+
         // Recompute whenever the video dimensions or the available box size change
         // maxWidth and max Height come from BoxWithConstraints
         val surfaceModifier = remember(videoResolution, maxWidth, maxHeight) {
-            if (videoResolution.width > 0 && videoResolution.height > 0) {
-                val videoAspect = videoResolution.width.toFloat() / videoResolution.height.toFloat()
-                val boxAspect   = maxWidth.value / maxHeight.value   // both in dp → ratio is unit-less
+            val actualVideoResolution = if (screenRotationDegrees % 180 != 0) {
+                videoResolution
+            } else {
+                // If screen is rotated 90 or 270 deg, swap width and height
+                VideoTrainerDefaults.VideoResolution(videoResolution.height, videoResolution.width)
+            }
+            if (actualVideoResolution.width > 0 && actualVideoResolution.height > 0) {
+                val videoAspect = actualVideoResolution.width.toFloat() / actualVideoResolution.height.toFloat()
+                val boxAspect   = maxWidth.value / maxHeight.value
 
+                Timber.d("#######C vid=${actualVideoResolution.width}x${actualVideoResolution.height} box=${maxWidth}x$maxHeight screenRotation=$screenRotationDegrees")
                 if (videoAspect > boxAspect) {
                     // Video is wider than the box → constrain by width, letterbox top/bottom
                     val fittedHeight = (maxWidth.value / videoAspect).dp
@@ -47,6 +63,7 @@ fun VideoPlayer(
                 }
             } else {
                 // Dimensions not yet known — fill the box as a safe default.
+                Timber.d("#######C fillMaxSize()")
                 Modifier.fillMaxSize()
             }
         }
