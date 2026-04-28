@@ -73,7 +73,7 @@ class DecoderCoroutine(
      * **Must** be a [Channel.CONFLATED] channel: rapid slider movements collapse into a
      * single seek to the latest [targetPTS], discarding stale intermediate positions.
      */
-    private val jumpChannel: Channel<Unit>,
+//todo 2brm    private val jumpChannel: Channel<Unit>,
 
     /**
      * Invoked on fatal, non-cancellation errors (e.g. [MediaCodec.CodecException]).
@@ -157,7 +157,7 @@ class DecoderCoroutine(
             Timber.d("#######D finally calling decoder.release()")
             runCatching { decoder.release() }
                 .onFailure { Timber.e(it, "decoder.release() failed") }
-            cameraAndCodecConfig.invalidateScreenConfig() // Because we may be stopping due to screen rotation
+//todo 2brm            cameraAndCodecConfig.invalidateScreenConfig() // Because we may be stopping due to screen rotation
         }
     }
 
@@ -204,13 +204,14 @@ class DecoderCoroutine(
             // The ViewModel sends Unit here whenever the user reduces delaySec.
             // tryReceive() is non-blocking. The CONFLATED channel ensures only the latest jump
             // intent survives; stale intermediate positions are automatically discarded.
-            if (jumpChannel.tryReceive().isSuccess) {
-                val targetPTS = computeTargetPts()
-                Timber.d("#######D Jump signalled → targetPTS=$targetPTS")
-                readIndex = executeJump(decoder, targetPTS)
-                state = State.CATCHING_UP
-                continue
-            }
+            //todo 2brm
+//            if (jumpChannel.tryReceive().isSuccess) {
+//                val targetPTS = computeTargetPts()
+//                Timber.d("#######D Jump signalled → targetPTS=$targetPTS")
+//                readIndex = executeJump(decoder, targetPTS)
+//                state = State.CATCHING_UP
+//                continue
+//            }
 
             val targetPTS = computeTargetPts()
 //            Timber.d("#######D Loop iteration state=$state targetPTS=$targetPTS readIndex=$readIndex")
@@ -512,7 +513,7 @@ class DecoderCoroutine(
         while (! cameraAndCodecConfig.isConfigurationValid()  &&  currentCoroutineContext().isActive) {
             delay(CODEC_CONFIG_POLL_MS)
         }
-        Timber.d("Got codec config. cameraSensorOrientation: ${cameraAndCodecConfig.cameraSensorOrientation},  SPS/PPS: (${cameraAndCodecConfig.codecConfigDataHolder[0]?.size ?: 0} bytes)")
+        Timber.d("#######D Got codec config. cameraSensorOrientation: ${cameraAndCodecConfig.cameraSensorOrientation},  SPS/PPS: (${cameraAndCodecConfig.codecConfigDataHolder[0]?.size ?: 0} bytes)")
     }
 
     // -----------------------------------------------------------------------------------------

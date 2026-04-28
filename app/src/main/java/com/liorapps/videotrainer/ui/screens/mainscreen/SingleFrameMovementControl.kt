@@ -1,7 +1,6 @@
 package com.liorapps.videotrainer.ui.screens.mainscreen
 
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -16,7 +15,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
@@ -24,6 +22,9 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.material3.Surface
+import androidx.compose.ui.tooling.preview.Preview
+import com.liorapps.videotrainer.ui.theme.VideoTrainerTheme
 import androidx.compose.ui.unit.dp
 
 /*
@@ -54,18 +55,18 @@ import androidx.compose.ui.unit.dp
  *
  * @param modifier            Standard Compose modifier.
  * @param progress            Initial/current playback position in [0f, 1f].
- * @param setSingleFrameLocation Called whenever the user moves the thumb; receives the new
+ * @param onSelectSingleFrame Called whenever the user moves the thumb; receives the new
  *                            position as a percentage in [0f, 1f].
- * @param oneFrameForward     Called when the user taps the forward-step button.
- * @param oneFrameBackward    Called when the user taps the back-step button.
+ * @param onSingleFrameForward     Called when the user taps the forward-step button.
+ * @param onSingleFrameBackward    Called when the user taps the back-step button.
  */
 @Composable
 fun SingleFrameMovementControl(
     modifier: Modifier = Modifier,
     progress: Float = 0f,
-    setSingleFrameLocation: (currentScrollbarLocationInPercentage: Float) -> Unit,
-    oneFrameForward: () -> Unit,
-    oneFrameBackward: () -> Unit,
+    onSelectSingleFrame: (currentScrollbarLocationInPercentage: Float) -> Unit,
+    onSingleFrameForward: () -> Unit,
+    onSingleFrameBackward: () -> Unit,
 ) {
     // Keep an internal copy so the thumb moves immediately on drag,
     // even before the caller round-trips the new value back through [progress].
@@ -87,13 +88,13 @@ fun SingleFrameMovementControl(
         /* ── Left button: back one frame ── */
         FrameStepButton(
             contentDescription = "Back one frame",
-            onClick = oneFrameBackward,
+            onClick = onSingleFrameBackward,
         ) {
 //            DrawStepIcon(forward = false)
             Icon(
                 imageVector = Icons.Filled.SkipPrevious,
                 contentDescription = null, // already set on the button
-                tint = Color.White,
+                tint = Color(0xFFFF3B30),
                 modifier = Modifier.size(26.dp)
             )
         }
@@ -104,20 +105,20 @@ fun SingleFrameMovementControl(
             position = sliderPosition,
             onPositionChanged = { newPos ->
                 sliderPosition = newPos
-                setSingleFrameLocation(newPos)
+                onSelectSingleFrame(newPos)
             },
         )
 
         /* ── Right button: forward one frame ── */
         FrameStepButton(
             contentDescription = "Forward one frame",
-            onClick = oneFrameForward,
+            onClick = onSingleFrameForward,
         ) {
 //            DrawStepIcon(forward = true)
             Icon(
                 imageVector = Icons.Filled.SkipNext,
                 contentDescription = null,
-                tint = Color.White,
+                tint = Color(0xFFFF3B30),
                 modifier = Modifier.size(26.dp)
             )
         }
@@ -143,9 +144,9 @@ private fun FrameStepButton(
     Box(
         modifier = modifier
             .size(48.dp)
-            .shadow(elevation = 4.dp, shape = CircleShape)
+//            .shadow(elevation = 4.dp, shape = CircleShape)
             .clip(CircleShape)
-            .background(Color(0xFF1E1E1E))
+//            .background(Color(0xFF1E1E1E))
             .clickable(
                 interactionSource = interactionSource,
                 indication = ripple(bounded = true, color = Color(0xFFFF3B30)),
@@ -298,5 +299,21 @@ private fun FrameSeekBar(
             radius = thumbR * 0.35f,
             center = Offset(thumbX, cy),
         )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun SingleFrameMovementControlPreview() {
+    VideoTrainerTheme {
+        Surface(color = Color.Black) {
+            var progress by remember { mutableFloatStateOf(0.5f) }
+            SingleFrameMovementControl(
+                progress = progress,
+                onSelectSingleFrame = { progress = it },
+                onSingleFrameForward = {},
+                onSingleFrameBackward = {}
+            )
+        }
     }
 }

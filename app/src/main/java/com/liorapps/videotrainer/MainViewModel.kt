@@ -134,7 +134,7 @@ class MainViewModel(application: Application, val settingsRepo: SettingsReposito
      * [Channel.CONFLATED]: rapid slider movements collapse into a single seek to the
      * latest target PTS, discarding stale intermediate positions.
      */
-    private val jumpChannel = Channel<Unit>(Channel.CONFLATED)
+//todo 2brm    private val jumpChannel = Channel<Unit>(Channel.CONFLATED)
 
     // ─────────────────────────────────────────────────────────────────────────
     // Surface and coroutine job handles  (main-thread only)
@@ -191,26 +191,6 @@ class MainViewModel(application: Application, val settingsRepo: SettingsReposito
                 stopPipeline()
                 playbackState = PlaybackState.PAUSED
             }
-        }
-    }
-
-    /**
-     * Updates the playback delay and, if the delay was *reduced*, signals the decoder to
-     * execute the jump sequence (§9).  Increasing the delay requires no action — the decoder
-     * will naturally fall behind or enter FROZEN state.
-     *
-     * Safe to call while the pipeline is running or stopped.
-     *
-     * @param newDelaySec  New delay in seconds; must be in [MIN_DELAY_SEC, MAX_DELAY_SEC].
-     */
-    fun onDelayChanged(newDelaySec: Int) {
-        val wasReduced = newDelaySec < settingsFlow.value.delaySec
-        viewModelScope.launch { settingsRepo.setDelaySec(newDelaySec) }
-        if (wasReduced && playbackState == PlaybackState.PLAYING) {
-            // A jump is needed only when delay decreases (targetPTS moves forward in time).
-            // Increasing delay requires no action — the decoder naturally falls behind.
-            // trySend on a CONFLATED channel never blocks and never fails due to capacity.
-            jumpChannel.trySend(Unit)
         }
     }
 
@@ -367,7 +347,7 @@ class MainViewModel(application: Application, val settingsRepo: SettingsReposito
                     cameraAndCodecConfig  = cameraAndCodecConfig,
                     outputSurface         = surface,
                     delaySecProvider      = { settingsFlow.value.delaySec },   // reads @Volatile-backed Compose state
-                    jumpChannel           = jumpChannel,
+//                    jumpChannel           = jumpChannel,
 //                    onError               = ::handleDecoderError,
                 ).run()
             } catch (e: CancellationException) {
@@ -444,20 +424,40 @@ class MainViewModel(application: Application, val settingsRepo: SettingsReposito
         }
     }
 
+    /** todo: 2brm
+     * Updates the playback delay and, if the delay was *reduced*, signals the decoder to
+     * execute the jump sequence (§9).  Increasing the delay requires no action — the decoder
+     * will naturally fall behind or enter FROZEN state.
+     *
+     * Safe to call while the pipeline is running or stopped.
+     *
+     * @param newDelaySec  New delay in seconds; must be in [MIN_DELAY_SEC, MAX_DELAY_SEC].
+     */
+//    fun onDelayChanged(newDelaySec: Int) {
+//        val wasReduced = newDelaySec < settingsFlow.value.delaySec
+//        viewModelScope.launch { settingsRepo.setDelaySec(newDelaySec) }
+//        if (wasReduced && playbackState == PlaybackState.PLAYING) {
+//            // A jump is needed only when delay decreases (targetPTS moves forward in time).
+//            // Increasing delay requires no action — the decoder naturally falls behind.
+//            // trySend on a CONFLATED channel never blocks and never fails due to capacity.
+//            jumpChannel.trySend(Unit)
+//        }
+//    }
+
     fun onDelayChange(value: Int) {
         val newDelaySec = value.coerceIn(VideoTrainerDefaults.MIN_DELAY_SEC, VideoTrainerDefaults.MAX_DELAY_SEC)
         viewModelScope.launch { settingsRepo.setDelaySec(newDelaySec) }
     }
 
     fun onSetSingleFrameLocation(value: Float) {
-        Timber.d("onSetSingleFrameLocation() value=$value")
+        Timber.d("#######VM onSetSingleFrameLocation() value=$value")
         _singleFrameScrollbarPosition.value = value
     }
     fun onSingleFrameForward() {
-        Timber.d("onSingleFrameForward()")
+        Timber.d("#######VM onSingleFrameForward()")
     }
     fun onSingleFrameBackward() {
-        Timber.d("onSingleFrameBackward()")
+        Timber.d("#######VM onSingleFrameBackward()")
     }
 
     fun navigateTo(key: NavKey) {

@@ -6,14 +6,19 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import android.content.res.Configuration
+import android.view.Surface
 import androidx.activity.compose.BackHandler
-import androidx.compose.material.icons.filled.FullscreenExit
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -21,6 +26,8 @@ import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.liorapps.videotrainer.CameraPermissionState
 import com.liorapps.videotrainer.MainViewModel
 import com.liorapps.videotrainer.PlaybackState
+import com.liorapps.videotrainer.VideoTrainerDefaults
+import com.liorapps.videotrainer.ui.theme.VideoTrainerTheme
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalPermissionsApi::class)
 @Composable
@@ -74,79 +81,135 @@ fun MainScreenContent(
             LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
 
         if (isFullScreen) {
-            VideoPlayer(
+            VideoArea(
+                innerPadding = PaddingValues(0.dp),
                 videoResolution = videoResolution,
+                isLandscape = isLandscape,
+                isPlaying = viewModel.playbackState == PlaybackState.PLAYING,
+                delaySec = settings.delaySec,
                 onSurfaceReady = viewModel::onSurfaceReady,
                 onSurfaceDestroyed = viewModel::onSurfaceDestroyed,
-            )
-
-            ControlBar(  // Adaptive Control Bar
-                modifier = if (isLandscape) {
-                    Modifier
-                        .align(Alignment.CenterEnd)
-                        .padding(start = 0.dp, top = 0.dp, bottom = 0.dp, end = 12.dp)
-                } else {
-                    Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(start = 0.dp, top = 0.dp, bottom = 12.dp, end = 0.dp)
-                },
-                isLandscape = isLandscape,
-                isFullScreen = true,
-                isPlaying = viewModel.playbackState == PlaybackState.PLAYING,
-                delay = settings.delaySec,
                 onTogglePlayback = viewModel::onTogglePlayback,
                 onToggleFullScreen = viewModel::toggleIsFullScreen,
-                onDelayChange = viewModel::onDelayChange,
+                onVideoDelayChange = viewModel::onDelayChange,
+                onSelectSingleFrame = viewModel::onSetSingleFrameLocation,
+                onSingleFrameForward = viewModel::onSingleFrameForward,
+                onSingleFrameBackward = viewModel::onSingleFrameBackward,
             )
-
-//            // Exit full-screen button (top-end corner, shown transiently)
-//            IconButton(
-//                onClick = { viewModel.setIsFullScreen(false) },
-//                modifier = Modifier
-//                    .align(Alignment.TopEnd)
-//                    .padding(8.dp)
-//            ) {
-//                Icon(
-//                    imageVector = Icons.Default.FullscreenExit,
-//                    contentDescription = "Exit full screen",
-//                    tint = Color.White
-//                )
-//            }
         } else { // Not at full screen
             Scaffold(
                 modifier = Modifier.fillMaxSize(),
                 topBar = { TopBar(onNavigateToSettings) }
             ) { innerPadding ->
+                VideoArea(
+                    innerPadding = innerPadding,
+                    videoResolution = videoResolution,
+                    isLandscape = isLandscape,
+                    isPlaying = viewModel.playbackState == PlaybackState.PLAYING,
+                    delaySec = settings.delaySec,
+                    onSurfaceReady = viewModel::onSurfaceReady,
+                    onSurfaceDestroyed = viewModel::onSurfaceDestroyed,
+                    onTogglePlayback = viewModel::onTogglePlayback,
+                    onToggleFullScreen = viewModel::toggleIsFullScreen,
+                    onVideoDelayChange = viewModel::onDelayChange,
+                    onSelectSingleFrame = viewModel::onSetSingleFrameLocation,
+                    onSingleFrameForward = viewModel::onSingleFrameForward,
+                    onSingleFrameBackward = viewModel::onSingleFrameBackward,
+                )
+            }
+        }
+    }
+}
 
-                Box(
+@Composable
+fun VideoArea(
+    innerPadding: PaddingValues,
+    videoResolution:  VideoTrainerDefaults.VideoResolution,
+    isLandscape: Boolean,
+    isPlaying: Boolean,
+    delaySec: Int,
+    onSurfaceReady: (Surface) -> Unit,
+    onSurfaceDestroyed: () -> Unit,
+    onTogglePlayback: () -> Unit,
+    onToggleFullScreen: () -> Unit,
+    onVideoDelayChange: (Int) -> Unit,
+    onSelectSingleFrame: (Float) -> Unit,
+    onSingleFrameForward: () -> Unit,
+    onSingleFrameBackward: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(innerPadding)
+    ) {
+        VideoPlayer(
+            videoResolution = videoResolution,
+            onSurfaceReady = onSurfaceReady,
+            onSurfaceDestroyed = onSurfaceDestroyed,
+        )
+
+        if (isLandscape) {
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+            ) {
+                SingleFrameMovementControl(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding)
-                ) {
-                    VideoPlayer(
-                        videoResolution = videoResolution,
-                        onSurfaceReady = viewModel::onSurfaceReady,
-                        onSurfaceDestroyed = viewModel::onSurfaceDestroyed,
-                    )
+                        .align(Alignment.Bottom)
+                        .weight(1.0f)
+                        .visible(! isPlaying),
+                    progress = 0.33f,
+                    onSelectSingleFrame = onSelectSingleFrame,
+                    onSingleFrameForward = onSingleFrameForward,
+                    onSingleFrameBackward = onSingleFrameBackward,
+                )
 
-                    ControlBar(  // Adaptive Control Bar
-                        modifier = if (isLandscape) {
-                            Modifier
-                                .align(Alignment.CenterEnd)
-                                .padding(start = 0.dp, top = 0.dp, bottom = 0.dp, end = 12.dp)
-                        } else {
-                            Modifier
-                                .align(Alignment.BottomCenter)
-                                .padding(start = 0.dp, top = 0.dp, bottom = 12.dp, end = 0.dp)
-                        },
-                        isLandscape = isLandscape,
-                        isFullScreen = false,
-                        isPlaying = viewModel.playbackState == PlaybackState.PLAYING,
-                        delay = settings.delaySec,
-                        onTogglePlayback = viewModel::onTogglePlayback,
-                        onToggleFullScreen = viewModel::toggleIsFullScreen,
-                        onDelayChange = viewModel::onDelayChange,
-                    )
+                ControlBar(
+                    // Adaptive Control Bar
+                    modifier = Modifier
+                        .align(Alignment.CenterVertically)
+                        .padding(start = 0.dp, top = 0.dp, bottom = 0.dp, end = 12.dp),
+                    isLandscape = true,
+                    isFullScreen = false,
+                    isPlaying = isPlaying,
+                    delay = delaySec,
+                    onTogglePlayback = onTogglePlayback,
+                    onToggleFullScreen = onToggleFullScreen,
+                    onDelayChange = onVideoDelayChange,
+                )
+            }
+        } else { // portrait
+            Column(
+                modifier = Modifier
+                    .fillMaxSize(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Bottom
+            ) {
+                SingleFrameMovementControl(
+                    modifier = Modifier
+                        .visible(! isPlaying),
+                    progress = 0.33f,
+                    onSelectSingleFrame = onSelectSingleFrame,
+                    onSingleFrameForward = onSingleFrameForward,
+                    onSingleFrameBackward = onSingleFrameBackward,
+                )
+
+                ControlBar(
+                    // Adaptive Control Bar
+                    modifier = Modifier
+                        .padding(start = 0.dp, top = 0.dp, bottom = 12.dp, end = 0.dp),
+                    isLandscape = false,
+                    isFullScreen = false,
+                    isPlaying = isPlaying,
+                    delay = delaySec,
+                    onTogglePlayback = onTogglePlayback,
+                    onToggleFullScreen = onToggleFullScreen,
+                    onDelayChange = onVideoDelayChange,
+                )
+            }
+        }
+
+
 //                    // Enter full-screen button (bottom-end corner of the video)
 //                    IconButton(
 //                        onClick = { viewModel.setIsFullScreen(true) },
@@ -158,13 +221,8 @@ fun MainScreenContent(
 //                            tint = Color.Blue
 //                        )
 //                    }
-                }
-            }
-        }
     }
 }
-
-
 
 
 
@@ -461,10 +519,58 @@ fun DelayDialog(
     )
 }
 
-//@PreviewAnnotation(showBackground = true)
-//@Composable
-//fun MainScreenPreview() {
-//    VideoTrainerTheme {
-//        MainScreen(onNavigateToSettings = {})
-//    }
-//}
+@Preview(showBackground = true, widthDp = 800, heightDp = 480)
+@Composable
+fun VideoAreaLandscapePreview() {
+    VideoTrainerTheme {
+        VideoArea(
+            innerPadding = PaddingValues(0.dp),
+            videoResolution = VideoTrainerDefaults.VideoResolution.HD_1280x720(),
+            isLandscape = true,
+            isPlaying = true,
+            delaySec = 5,
+            onSurfaceReady = {},
+            onSurfaceDestroyed = {},
+            onTogglePlayback = {},
+            onToggleFullScreen = {},
+            onVideoDelayChange = {},
+            onSelectSingleFrame = {},
+            onSingleFrameForward = {},
+            onSingleFrameBackward = {},
+        )
+    }
+}
+
+@Preview(showBackground = true, widthDp = 360, heightDp = 640)
+@Composable
+fun VideoAreaPortraitPreview() {
+    VideoTrainerTheme {
+        VideoArea(
+            innerPadding = PaddingValues(0.dp),
+            videoResolution = VideoTrainerDefaults.VideoResolution.HD_1280x720(),
+            isLandscape = false,
+            isPlaying = false,
+            delaySec = 10,
+            onSurfaceReady = {},
+            onSurfaceDestroyed = {},
+            onTogglePlayback = {},
+            onToggleFullScreen = {},
+            onVideoDelayChange = {},
+            onSelectSingleFrame = {},
+            onSingleFrameForward = {},
+            onSingleFrameBackward = {},
+        )
+    }
+}
+
+fun Modifier.visible(visible: Boolean): Modifier =
+    this
+        .alpha(if (visible) 1f else 0f)
+        .pointerInput(visible) {
+            if (! visible) {
+                awaitPointerEventScope {
+                    while (true) awaitPointerEvent(pass = PointerEventPass.Initial)
+                        .changes.forEach { it.consume() }
+                }
+            }
+        }
