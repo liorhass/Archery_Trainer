@@ -200,7 +200,9 @@ class EncoderCoroutine(
             // ------------------------------------------------------------------
             runCatching { cameraDevice?.close(); cameraDevice = null }
             runCatching { encoder?.stop() }
+                .onFailure { Timber.e(it, "encoder.stop() failed") }
             runCatching { encoder?.release(); encoder = null }
+                .onFailure { Timber.e(it, "encoder.release() failed") }
             runCatching { encoderInputSurface?.release(); encoderInputSurface = null }
             runCatching { cameraThread.quitSafely(); cameraThread.join() }
         }
@@ -232,7 +234,9 @@ class EncoderCoroutine(
                     // Must call getOutputFormat() to satisfy the codec state machine;
                     // no further action needed for surface-to-surface output (§5.3).
                     val newFormat = encoder.outputFormat
-                    Timber.w("Output format changed (wasn't expected): $newFormat")
+                    cameraAndCodecConfig.sps = newFormat.getByteBuffer("csd-0")
+                    cameraAndCodecConfig.pps = newFormat.getByteBuffer("csd-1")
+                    Timber.i("#######E Output format changed: sps_size=${cameraAndCodecConfig.sps?.capacity() ?: "null"} pps_size=${cameraAndCodecConfig.pps?.capacity() ?: "null"}")
                 }
 
                 else -> {
@@ -286,10 +290,10 @@ class EncoderCoroutine(
                 Timber.d("#######E processEncoderBuffer() CODEC_CONFIG size=${bufferInfo.size}")
                 // ---- SPS / PPS ----
                 // Copy to a dedicated ByteArray; do NOT write into the ring buffer (§3.3).
-                val configBytes = ByteArray(bufferInfo.size)
-                outputBuffer.get(configBytes)
-                // Visible to the decoder coroutine via @Volatile on the holder field (§11).
-                cameraAndCodecConfig.codecConfigDataHolder[0] = configBytes
+//                val configBytes = ByteArray(bufferInfo.size)
+//                outputBuffer.get(configBytes)
+//                // Visible to the decoder coroutine via @Volatile on the holder field (§11).
+//                cameraAndCodecConfig.codecConfigDataHolder[0] = configBytes
 
             } else {
                 // ---- Normal NAL unit ----

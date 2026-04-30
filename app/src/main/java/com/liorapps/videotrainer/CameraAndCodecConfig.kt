@@ -1,8 +1,13 @@
 package com.liorapps.videotrainer
 
+import java.nio.ByteBuffer
+
 class CameraAndCodecConfig {
+//    @Volatile
+//    var codecConfigDataHolder: Array<ByteArray?> = arrayOfNulls(1)
     @Volatile
-    var codecConfigDataHolder: Array<ByteArray?> = arrayOfNulls(1)
+    var sps: ByteBuffer? = null
+    var pps: ByteBuffer? = null
 
     @Volatile
     var cameraSensorOrientation: Int = 270 // 0, 90, 180, 270
@@ -14,17 +19,20 @@ class CameraAndCodecConfig {
     var screenOrientation: Int? = null // 0, 90, 180, 270
 
     fun invalidateConfig() {
-        codecConfigDataHolder[0] = null
-        screenOrientation = null
+        invalidateCodecConfig()
+        invalidateScreenConfig()
     }
     fun invalidateCodecConfig() {
-        codecConfigDataHolder[0] = null
+//        codecConfigDataHolder[0] = null
+        sps = null
+        pps = null
     }
     fun invalidateScreenConfig() {
         screenOrientation = null
     }
 
-    fun isConfigurationValid(): Boolean = codecConfigDataHolder[0] != null  &&  screenOrientation != null
+//    fun isConfigurationValid(): Boolean = codecConfigDataHolder[0] != null  &&  screenOrientation != null
+    fun isConfigurationValid(): Boolean = sps != null  &&  pps != null  &&  screenOrientation != null
 
     fun computeRelativeDecoderRotation(): Int {
         val so = screenOrientation ?: 0

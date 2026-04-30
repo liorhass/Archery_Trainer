@@ -1,6 +1,8 @@
 package com.liorapps.videotrainer
 
 import android.app.Application
+import android.media.MediaCodec
+import android.media.MediaFormat
 import android.view.Surface
 import androidx.annotation.RequiresPermission
 import androidx.camera.core.CameraSelector
@@ -125,8 +127,8 @@ class MainViewModel(application: Application, val settingsRepo: SettingsReposito
      * whose suspension points provide the necessary visibility across threads.
      */
     private val cameraAndCodecConfig = CameraAndCodecConfig()
-//    @Volatile
-//    private var codecConfigDataHolder: Array<ByteArray?> = arrayOfNulls(1)
+
+    val singleFrameDisplayer = SingleFrameDisplayer(cameraAndCodecConfig, ringBuffer.AsLinearBuffer())
 
     /**
      * Signals the decoder to execute the jump sequence (§9) when the user reduces [delaySec].
@@ -184,12 +186,25 @@ class MainViewModel(application: Application, val settingsRepo: SettingsReposito
         Timber.d("#######VM togglePlayback() currentPlaybackState=$playbackState")
         when (playbackState) {
             PlaybackState.PAUSED  -> {
+                singleFrameDisplayer.releaseDecoder()
                 startPipeline()
                 playbackState = PlaybackState.PLAYING
             }
             PlaybackState.PLAYING -> {
                 stopPipeline()
                 playbackState = PlaybackState.PAUSED
+                if (currentSurface != null) {
+                    viewModelScope.launch(Dispatchers.IO) {
+                        val decoderSetupOk = singleFrameDisplayer.setupDecoder(currentSurface!!)
+                        if (decoderSetupOk) {
+                            singleFrameDisplayer.displayFrameByRelativeLocation(1.0f)
+                        } else {
+                            Timber.w("singleFrameDisplayer.setupDecoder() failed")
+                        }
+                    }
+                } else {
+                    Timber.e("#######VM currentSurface=null")
+                }
             }
         }
     }
@@ -262,14 +277,10 @@ class MainViewModel(application: Application, val settingsRepo: SettingsReposito
     @RequiresPermission(android.Manifest.permission.CAMERA)
     private fun startPipeline() {
         Timber.d("#######VM startPipeline()")
-        if (playbackState == PlaybackState.PLAYING) return
-
         // Discard any stale ring-buffer data and codec config from a prior session.
         ringBuffer.reset()
         cameraAndCodecConfig.invalidateCodecConfig()
         errorMessage = null
-
-//        playbackState = PlaybackState.PLAYING
 
         launchEncoderJob()
 
@@ -338,19 +349,23 @@ class MainViewModel(application: Application, val settingsRepo: SettingsReposito
         }
     }
 
+//    val decoder = MediaCodec.createDecoderByType(MediaFormat.MIMETYPE_VIDEO_AVC)
     private fun launchDecoderJob(surface: Surface) {
         decoderJob = viewModelScope.launch(Dispatchers.IO + CoroutineName("ATDecoderCoroutine")) {
             try {
                 Timber.d("#######VM launchDecoderJob()")
                 DecoderCoroutine(
+//                    decoder               = decoder,
                     nalRingBuffer         = ringBuffer,
                     cameraAndCodecConfig  = cameraAndCodecConfig,
                     outputSurface         = surface,
-                    delaySecProvider      = { settingsFlow.value.delaySec },   // reads @Volatile-backed Compose state
+                    delaySecProvider      = { settingsFlow.value.delaySec },
 //                    jumpChannel           = jumpChannel,
 //                    onError               = ::handleDecoderError,
                 ).run()
             } catch (e: CancellationException) {
+                // No need to stop and release the decoder here because DecoderCoroutine.run()
+                // has a finally block that takes care of that before we get here
                 Timber.d(e, "#######VM decoder CancellationException")
             } catch (e: Exception) {
                 Timber.e(e, "#######VM DecoderCoroutine failed")
@@ -412,6 +427,7 @@ class MainViewModel(application: Application, val settingsRepo: SettingsReposito
     override fun onCleared() {
         super.onCleared()
         Timber.d("#######VM onCleared()")
+        singleFrameDisplayer.releaseDecoder()
         stopPipeline()
         ringBuffer.reset()
     }
@@ -450,14 +466,23 @@ class MainViewModel(application: Application, val settingsRepo: SettingsReposito
     }
 
     fun onSetSingleFrameLocation(value: Float) {
-        Timber.d("#######VM onSetSingleFrameLocation() value=$value")
-        _singleFrameScrollbarPosition.value = value
+        viewModelScope.launch(Dispatchers.IO) {
+            Timber.d("#######VM onSetSingleFrameLocation() value=$value")
+            _singleFrameScrollbarPosition.value = value
+            singleFrameDisplayer.displayFrameByRelativeLocation(value)
+        }
     }
     fun onSingleFrameForward() {
-        Timber.d("#######VM onSingleFrameForward()")
+        viewModelScope.launch(Dispatchers.IO) {
+//            Timber.d("#######VM onSingleFrameForward()")
+            singleFrameDisplayer.displayNextFrame()
+        }
     }
     fun onSingleFrameBackward() {
-        Timber.d("#######VM onSingleFrameBackward()")
+        viewModelScope.launch(Dispatchers.IO) {
+//            Timber.d("#######VM onSingleFrameBackward()")
+            singleFrameDisplayer.displayPreviousFrame()
+        }
     }
 
     fun navigateTo(key: NavKey) {

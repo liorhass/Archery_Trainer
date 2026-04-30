@@ -4,11 +4,11 @@ import android.media.MediaCodec
 import android.media.MediaFormat
 import android.view.Surface
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import timber.log.Timber
+import java.nio.ByteBuffer
 
 /**
  * DecoderCoroutine — the sole consumer of the shared [RingBuffer].
@@ -44,6 +44,7 @@ import timber.log.Timber
  *    since this allocation would otherwise run at 30 fps for the entire pipeline lifetime.
  */
 class DecoderCoroutine(
+//    private val decoder: MediaCodec,
     private val nalRingBuffer: NalRingBuffer,
 
     /**
@@ -149,7 +150,7 @@ class DecoderCoroutine(
 //            onError(e)
             throw e
         } finally {
-            // Always release — even on cancellation or error.
+            // Always release - even on cancellation or error.
             // Each step is wrapped independently so one failure cannot prevent subsequent releases.
             Timber.d("#######D finally calling decoder.stop()")
             runCatching { decoder.stop() }
@@ -157,7 +158,6 @@ class DecoderCoroutine(
             Timber.d("#######D finally calling decoder.release()")
             runCatching { decoder.release() }
                 .onFailure { Timber.e(it, "decoder.release() failed") }
-//todo 2brm            cameraAndCodecConfig.invalidateScreenConfig() // Because we may be stopping due to screen rotation
         }
     }
 
@@ -174,14 +174,21 @@ class DecoderCoroutine(
             VideoTrainerDefaults.VideoResolution.HD_1280x720().width, // todo from settings
             VideoTrainerDefaults.VideoResolution.HD_1280x720().height, // todo from settings
         )
+
+        // SPS (NAL type 7) and PPS (NAL type 8) are set here once. The codec will
+        // automatically re-apply them after each flush() - no need to re-feed them manually
+        videoFormat.setByteBuffer("csd-0", cameraAndCodecConfig.sps)   // SPS NAL
+        videoFormat.setByteBuffer("csd-1", cameraAndCodecConfig.pps)   // PPS NAL
+
         val rotation = cameraAndCodecConfig.computeRelativeDecoderRotation()
         videoFormat.setInteger(MediaFormat.KEY_ROTATION, rotation)
+
         decoder.reset()
         decoder.configure(videoFormat, outputSurface, /* crypto = */ null, /* flags = */ 0)
         decoder.start()
 
         // Feed SPS/PPS before the first NAL unit so the decoder has stream parameters.
-        feedCodecConfig(decoder)
+//todo 2brm        feedCodecConfig(decoder)
     }
 
     // -----------------------------------------------------------------------------------------
@@ -220,10 +227,10 @@ class DecoderCoroutine(
             // If the newest frame in the buffer is still older than what we want to display,
             // there is nothing to decode. Sleep and try again.
             // Primary triggers: (1) pipeline startup — buffer is empty; (2) encoder stall (rare).
-            if (nalRingBuffer.isEmpty() || nalRingBuffer.newestPts() < targetPTS) {
+            if (nalRingBuffer.isEmpty || nalRingBuffer.newestPts < targetPTS) {
                 Timber.d("#######D xxxxxxxxxx1")
                 if (state != State.FROZEN) {
-                    Timber.d("#######D Entering FROZEN (newestPts=${nalRingBuffer.newestPts()} < targetPTS=$targetPTS)")
+                    Timber.d("#######D Entering FROZEN (newestPts=${nalRingBuffer.newestPts} < targetPTS=$targetPTS)")
                     state = State.FROZEN
                 }
                 delay(FROZEN_SLEEP_MS)
@@ -249,7 +256,7 @@ class DecoderCoroutine(
             // If the encoder's ring buffer has lapped us and evicted the slot our cursor points
             // to, getPtsOfNal() returns Long.MIN_VALUE. Re-seek to a valid I-frame and resume.
             // In normal operation. This should never occur
-            if (nalRingBuffer.getPtsOfNal(readIndex) == Long.MIN_VALUE) {
+            if (nalRingBuffer.getNalPts(readIndex) == Long.MIN_VALUE) {
                 Timber.w("#######D readIndex=$readIndex evicted by encoder — re-seeking")
                 readIndex = seekToKeyframe(targetPTS)
                 if (readIndex < 0) {
@@ -264,7 +271,7 @@ class DecoderCoroutine(
             // If the frame is too new (framePts > targetPTS), we skip input this iteration;
             // this happens when the user has increased delaySec, and we have "lapped" the
             // target - we simply wait for wall-clock time to advance until targetPTS catches up
-            val framePts = nalRingBuffer.getPtsOfNal(readIndex)
+            val framePts = nalRingBuffer.getNalPts(readIndex)
             if (framePts != Long.MIN_VALUE  &&  framePts <= targetPTS) {
 //                Timber.d("#######D Submitting frame state=$state targetPTS=$targetPTS framePts=$framePts readIndex=$readIndex")
                 val submitted = submitNrbFrameToDecoder(decoder, readIndex, framePts)
@@ -431,11 +438,11 @@ class DecoderCoroutine(
      * Returns the metadata slot index from which decoding should resume.
      * The caller is responsible for setting [State.CATCHING_UP].
      */
-    private fun executeJump(decoder: MediaCodec, targetPTS: Long): Int {
-        decoder.flush()
-        feedCodecConfig(decoder)
-        return seekToKeyframe(targetPTS)
-    }
+//    private fun executeJump(decoder: MediaCodec, targetPTS: Long): Int {
+//        decoder.flush()
+//        feedCodecConfig(decoder)
+//        return seekToKeyframe(targetPTS)
+//    }
 
     // -----------------------------------------------------------------------------------------
     // Keyframe seek
@@ -480,28 +487,28 @@ class DecoderCoroutine(
      *       codec configuration state; submitting an IDR without preceding SPS/PPS will
      *       produce corrupted output or an exception on many devices.
      */
-    private fun feedCodecConfig(decoder: MediaCodec) {
-        val configData = requireNotNull(cameraAndCodecConfig.codecConfigDataHolder[0]) {
-            // Guaranteed non-null here because run() calls waitForCodecConfig() before
-            // configuring the decoder, and executeJump() is only reachable after run() starts.
-            "feedCodecConfig: SPS/PPS not available — waitForCodecConfig() must be called first"
-        }
-
-        val inputIndex = decoder.dequeueInputBuffer(DEQUEUE_TIMEOUT_US)
-        check(inputIndex >= 0) { "feedCodecConfig: no input buffer available for SPS/PPS" }
-
-        val dest = decoder.getInputBuffer(inputIndex)!!
-        //todo 2brm dest.clear() //todo: not needed because getInputBuffer() returns a cleared buf.
-        dest.put(configData)
-
-        decoder.queueInputBuffer(
-            /* index  = */ inputIndex,
-            /* offset = */ 0,
-            /* size   = */ configData.size,
-            /* presentationTimeUs = */ 0L,
-            MediaCodec.BUFFER_FLAG_CODEC_CONFIG,
-        )
-    }
+//    private fun feedCodecConfig(decoder: MediaCodec) {
+//        val configData = requireNotNull(cameraAndCodecConfig.codecConfigDataHolder[0]) {
+//            // Guaranteed non-null here because run() calls waitForCodecConfig() before
+//            // configuring the decoder, and executeJump() is only reachable after run() starts.
+//            "feedCodecConfig: SPS/PPS not available — waitForCodecConfig() must be called first"
+//        }
+//
+//        val bufIndex = decoder.dequeueInputBuffer(DEQUEUE_TIMEOUT_US)
+//        check(bufIndex >= 0) { "feedCodecConfig: no input buffer available for SPS/PPS" }
+//
+//        val dest = decoder.getInputBuffer(bufIndex)!!
+//        //todo 2brm dest.clear() //todo: not needed because getInputBuffer() returns a cleared buf.
+//        dest.put(configData)
+//
+//        decoder.queueInputBuffer(
+//            /* index  = */ bufIndex,
+//            /* offset = */ 0,
+//            /* size   = */ configData.size,
+//            /* presentationTimeUs = */ 0L,
+//            MediaCodec.BUFFER_FLAG_CODEC_CONFIG,
+//        )
+//    }
 
     /**
      * Suspends until [codecConfigDataHolder][0] is non-null, polling every [CODEC_CONFIG_POLL_MS].
@@ -510,10 +517,11 @@ class DecoderCoroutine(
      * We must not configure or start the decoder before this data is available.
      */
     private suspend fun waitForCodecConfig() {
+        Timber.d("#######D Waiting for codec config")
         while (! cameraAndCodecConfig.isConfigurationValid()  &&  currentCoroutineContext().isActive) {
             delay(CODEC_CONFIG_POLL_MS)
         }
-        Timber.d("#######D Got codec config. cameraSensorOrientation: ${cameraAndCodecConfig.cameraSensorOrientation},  SPS/PPS: (${cameraAndCodecConfig.codecConfigDataHolder[0]?.size ?: 0} bytes)")
+        Timber.d("#######D Got codec config. cameraSensorOrientation=${cameraAndCodecConfig.cameraSensorOrientation},  SPS-Size=${cameraAndCodecConfig.sps?.capacity() ?: 0} PPS-size=${cameraAndCodecConfig.pps?.capacity() ?: 0}")
     }
 
     // -----------------------------------------------------------------------------------------

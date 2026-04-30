@@ -1,6 +1,5 @@
 package com.liorapps.videotrainer
 
-import timber.log.Timber
 import java.nio.ByteBuffer
 
 /**
@@ -129,7 +128,7 @@ class NalRingBuffer(
 //        writeHead += nalBytes.size
         writeHead += nalNBytes
 
-        // --- 4. Manage the metadata ring (evict oldest if full) ---
+        // --- 4. Manage the metadata ring (evict the oldest if full) ---
         if (metaCount == maxFrames) {
             // Ring is full: overwrite the oldest slot, advance tail.
             metaTail = (metaTail + 1) % maxFrames
@@ -166,7 +165,7 @@ class NalRingBuffer(
             "Destination buffer has ${dest.remaining()} bytes remaining, need $size"
         }
 
-        val slice = dataBuffer.duplicate()  // does not allocate native memory — just a view
+        val slice = dataBuffer.duplicate()  // does not allocate native memory - just a view
         slice.position(offset).limit(offset + size)
 
         dest.put(slice)                     // single native-to-native copy
@@ -175,13 +174,13 @@ class NalRingBuffer(
     }
 
     /** Returns the size in bytes of the NAL unit at [index], or -1 if invalid. */
-    fun getSize(index: Int): Int = if (isValidIndex(index)) metaSize[index] else -1
+    fun getNalSize(index: Int): Int = if (isValidIndex(index)) metaSize[index] else -1
 
     /**
      * Returns the presentation timestamp (µs) of the NAL unit at [index],
      * or [Long.MIN_VALUE] if [index] is not valid.
      */
-    fun getPtsOfNal(index: Int): Long =
+    fun getNalPts(index: Int): Long =
         if (isValidIndex(index)) metaPTS[index] else Long.MIN_VALUE
 
     /**
@@ -210,14 +209,14 @@ class NalRingBuffer(
 
         val head = metaHead    // snapshot
         var i = (head - 1 + maxFrames) % maxFrames
-        var checked = 0
+        var nChecked = 0
 
-        while (checked < count) {
+        while (nChecked < count) {
             if (metaIsKey[i] && metaPTS[i] <= targetPTS) {
                 return i
             }
             i = (i - 1 + maxFrames) % maxFrames
-            checked++
+            nChecked++
         }
 
         // No qualifying keyframe found — caller should fall back to oldest keyframe.
@@ -249,25 +248,28 @@ class NalRingBuffer(
     // -------------------------------------------------------------------------
 
     /** Returns the number of valid NAL units currently held in the buffer. */
-    fun count(): Int = metaCount
+    val count: Int
+        get() = metaCount
 
     /** Returns true if the buffer contains at least one entry. */
-    fun isEmpty(): Boolean = metaCount == 0
+    val isEmpty: Boolean
+        get() = metaCount == 0
 
     /** Returns the metadata slot index of the oldest (tail) entry, or -1 if empty. */
-    fun tailIndex(): Int = if (metaCount == 0) -1 else metaTail
+    val tailIndex: Int
+        get() = if (metaCount == 0) -1 else metaTail
 
     /** Returns the metadata slot index of the most-recently-written entry, or -1 if empty. */
-    fun newestIndex(): Int =
-        if (metaCount == 0) -1 else (metaHead - 1 + maxFrames) % maxFrames
+    val newestIndex: Int
+        get() = if (metaCount == 0) -1 else (metaHead - 1 + maxFrames) % maxFrames
 
     /** Returns the PTS of the most-recently-written NAL unit in µs, or [Long.MIN_VALUE] if empty. */
-    fun newestPts(): Long =
-        if (metaCount == 0) Long.MIN_VALUE else metaPTS[(metaHead - 1 + maxFrames) % maxFrames]
+    val newestPts: Long
+        get() = if (metaCount == 0) Long.MIN_VALUE else metaPTS[(metaHead - 1 + maxFrames) % maxFrames]
 
     /** Returns the PTS of the oldest NAL unit in µs, or [Long.MIN_VALUE] if empty. */
-    fun oldestPts(): Long =
-        if (metaCount == 0) Long.MIN_VALUE else metaPTS[metaTail]
+    val oldestPts: Long
+        get() = if (metaCount == 0) Long.MIN_VALUE else metaPTS[metaTail]
 
     /**
      * Returns the metadata slot that immediately follows [index] in ring order.
@@ -312,6 +314,61 @@ class NalRingBuffer(
         } else {
             // Ring has wrapped: valid range is [tail, maxFrames) ∪ [0, head)
             index >= tail || index < head
+        }
+    }
+
+    inner class AsLinearBuffer() {
+        /** Number of frames currently in the buffer */
+        val count: Int
+            get() = metaCount
+
+        /** Get the PTS of a frame */
+        fun getFramePts(index: Int): Long = metaPTS[linearIndexToMetaIndex(index)]
+
+        /**
+         * Get the data of a frame as a ByteBuffer
+         */
+        fun getFrameData(index: Int): ByteBuffer {
+            val offset   = metaOffset[linearIndexToMetaIndex(index)].toInt()
+            val size     = metaSize[linearIndexToMetaIndex(index)]
+            val frameBuf = dataBuffer.duplicate()  // does not allocate native memory - just a view
+            frameBuf.position(offset).limit(offset + size)
+            return frameBuf
+        }
+
+        /** Check if a frame is a keyframe */
+        fun isKeyFrame(index: Int): Boolean = metaIsKey[linearIndexToMetaIndex(index)]
+
+        /**
+         * Walks backward from the passed index to find the most-recent IDR frame
+         *
+         * @param index The index of the NAL for which we're looking a keyframe
+         * @return      The index of the nearest preceding keyframe,
+         *              or -1 if no suitable keyframe exists in the current buffer
+         *              (e.g. buffer is empty)
+         */
+        fun findNearestKeyframeBefore(index: Int): Int {
+            val count = metaCount  // snapshot: metaCount is @Volatile
+            if (count == 0) return -1
+
+            val head = metaHead    // snapshot
+            var i = (head - 1 + maxFrames) % maxFrames
+            var nChecked = 0
+
+            while (nChecked < count) {
+                if (metaIsKey[i]) {
+                    return i
+                }
+                i = (i - 1 + maxFrames) % maxFrames
+                nChecked++
+            }
+
+            // No qualifying keyframe found
+            return -1
+        }
+
+        private fun linearIndexToMetaIndex(linearIndex: Int): Int {
+            return (metaTail + linearIndex) % maxFrames
         }
     }
 
