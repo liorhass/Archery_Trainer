@@ -200,9 +200,9 @@ class EncoderCoroutine(
             // ------------------------------------------------------------------
             runCatching { cameraDevice?.close(); cameraDevice = null }
             runCatching { encoder?.stop() }
-                .onFailure { Timber.e(it, "encoder.stop() failed") }
+                .onFailure { Timber.e(it, "#######E encoder.stop() failed") }
             runCatching { encoder?.release(); encoder = null }
-                .onFailure { Timber.e(it, "encoder.release() failed") }
+                .onFailure { Timber.e(it, "#######E encoder.release() failed") }
             runCatching { encoderInputSurface?.release(); encoderInputSurface = null }
             runCatching { cameraThread.quitSafely(); cameraThread.join() }
         }
@@ -323,7 +323,7 @@ class EncoderCoroutine(
         val map = cameraChars.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
         val videoSizes: Array<Size>? = map?.getOutputSizes(SurfaceTexture::class.java)
         videoSizes?.forEach { size ->
-            Timber.d("  Supported Resolution: ${size.width} x ${size.height}")
+            Timber.d("#######E Supported Resolution: ${size.width} x ${size.height}")
         }
 
         // Retrieve the list of supported FPS ranges
@@ -333,7 +333,7 @@ class EncoderCoroutine(
         fpsRanges?.forEach { range ->
             // Example: [15, 30] means the camera can vary between 15 and 30 fps
             // Example: [30, 30] means a fixed frame rate of 30 fps
-            Timber.d("  Supported FPS range: ${range.lower} - ${range.upper}")
+            Timber.d("#######E Supported FPS range: ${range.lower} - ${range.upper}")
         }
 
 

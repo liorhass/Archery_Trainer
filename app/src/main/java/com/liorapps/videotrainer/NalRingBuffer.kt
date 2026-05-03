@@ -348,14 +348,12 @@ class NalRingBuffer(
          *              (e.g. buffer is empty)
          */
         fun findNearestKeyframeBefore(index: Int): Int {
-            val count = metaCount  // snapshot: metaCount is @Volatile
-            if (count == 0) return -1
+            if (metaCount == 0) return -1
 
-            val head = metaHead    // snapshot
-            var i = (head - 1 + maxFrames) % maxFrames
+            var i = (index - 1 + maxFrames) % maxFrames
             var nChecked = 0
 
-            while (nChecked < count) {
+            while (i != metaHead  &&  nChecked <= metaCount) {
                 if (metaIsKey[i]) {
                     return i
                 }

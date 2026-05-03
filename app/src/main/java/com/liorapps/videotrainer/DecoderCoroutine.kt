@@ -154,10 +154,10 @@ class DecoderCoroutine(
             // Each step is wrapped independently so one failure cannot prevent subsequent releases.
             Timber.d("#######D finally calling decoder.stop()")
             runCatching { decoder.stop() }
-                .onFailure { Timber.e(it, "decoder.stop() failed") }
+                .onFailure { Timber.e(it, "#######D decoder.stop() failed") }
             Timber.d("#######D finally calling decoder.release()")
             runCatching { decoder.release() }
-                .onFailure { Timber.e(it, "decoder.release() failed") }
+                .onFailure { Timber.e(it, "#######D decoder.release() failed") }
         }
     }
 
@@ -359,7 +359,7 @@ class DecoderCoroutine(
                 // For surface-output decoding the format change is handled by the hardware path;
                 // there is no further action needed on our side.
                 val newFormat = this.outputFormat
-                Timber.d("Output format changed: $newFormat")
+                Timber.d("#######D Output format changed: $newFormat")
             }
 
             // INFO_OUTPUT_BUFFERS_CHANGED (-3): deprecated since API 21; safe to ignore.
@@ -408,7 +408,7 @@ class DecoderCoroutine(
         if (nalSize <= 0) {
             // The slot was evicted by the encoder between our getPts() check and now.
             // Queue an empty buffer to return the slot; the outer loop will re-seek.
-            Timber.w("readNal returned $nalSize for nalIndexInNRB=$nalIndexInNRB — slot was evicted")
+            Timber.w("#######D readNal returned $nalSize for nalIndexInNRB=$nalIndexInNRB — slot was evicted")
             decoder.queueInputBuffer(decoderBufIndex, 0, 0, framePts, 0)
             return false
         }

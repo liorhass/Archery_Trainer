@@ -20,6 +20,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.material3.Surface
@@ -54,8 +55,8 @@ import androidx.compose.ui.unit.dp
  *  - A round "forward one frame" button on the right
  *
  * @param modifier            Standard Compose modifier.
- * @param progress            Initial/current playback position in [0f, 1f].
- * @param onSelectSingleFrame Called whenever the user moves the thumb; receives the new
+ * @param appSliderPosition            Initial/current playback position in [0f, 1f].
+ * @param onSliderMoved Called whenever the user moves the thumb; receives the new
  *                            position as a percentage in [0f, 1f].
  * @param onSingleFrameForward     Called when the user taps the forward-step button.
  * @param onSingleFrameBackward    Called when the user taps the back-step button.
@@ -63,30 +64,32 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun SingleFrameMovementControl(
     modifier: Modifier = Modifier,
-    progress: Float = 0f,
-    onSelectSingleFrame: (currentScrollbarLocationInPercentage: Float) -> Unit,
+    appSliderPosition: Float,
+    onSliderMoved: (newSliderLocationInPercentage: Float) -> Unit,
     onSingleFrameForward: () -> Unit,
     onSingleFrameBackward: () -> Unit,
 ) {
     // Keep an internal copy so the thumb moves immediately on drag,
     // even before the caller round-trips the new value back through [progress].
-    var sliderPosition by remember { mutableFloatStateOf(progress.coerceIn(0f, 1f)) }
+    var sliderPosition by remember { mutableFloatStateOf(appSliderPosition.coerceIn(0f, 1f)) }
 
     // Sync with external [progress] changes (e.g. programmatic seek).
-    LaunchedEffect(progress) {
-        sliderPosition = progress.coerceIn(0f, 1f)
+    LaunchedEffect(appSliderPosition) {
+        sliderPosition = appSliderPosition.coerceIn(0f, 1f)
     }
 
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(horizontal = 0.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
 
         /* ── Left button: back one frame ── */
         FrameStepButton(
+//            modifier = Modifier
+//                .padding(start = 0.dp, top = 0.dp, end = 8.dp, bottom = 0.dp),
             contentDescription = "Back one frame",
             onClick = onSingleFrameBackward,
         ) {
@@ -95,7 +98,9 @@ fun SingleFrameMovementControl(
                 imageVector = Icons.Filled.SkipPrevious,
                 contentDescription = null, // already set on the button
                 tint = Color(0xFFFF3B30),
-                modifier = Modifier.size(26.dp)
+                modifier = Modifier
+                    .padding(start = 8.dp)
+                    .size(32.dp)
             )
         }
 
@@ -104,13 +109,15 @@ fun SingleFrameMovementControl(
             modifier = Modifier.weight(1f),
             position = sliderPosition,
             onPositionChanged = { newPos ->
-                sliderPosition = newPos
-                onSelectSingleFrame(newPos)
+                sliderPosition = newPos // Update internal copy for quick response
+                onSliderMoved(newPos)
             },
         )
 
         /* ── Right button: forward one frame ── */
         FrameStepButton(
+//            modifier = Modifier
+//                .padding(start = 8.dp, top = 0.dp, end = 0.dp, bottom = 0.dp),
             contentDescription = "Forward one frame",
             onClick = onSingleFrameForward,
         ) {
@@ -119,7 +126,9 @@ fun SingleFrameMovementControl(
                 imageVector = Icons.Filled.SkipNext,
                 contentDescription = null,
                 tint = Color(0xFFFF3B30),
-                modifier = Modifier.size(26.dp)
+                modifier = Modifier
+                    .padding(end = 8.dp)
+                    .size(32.dp)
             )
         }
     }
@@ -216,8 +225,14 @@ private fun FrameStepButton(
 //    }
 //}
 
+
 /**
  * Custom red seek bar: inactive gray track, active red track, red draggable thumb.
+ *
+ * The track is drawn with horizontal padding equal to the thumb's glow radius so
+ * that the thumb is never flush with the canvas edge. This ensures the user can
+ * comfortably drag the thumb even at the minimum and maximum positions, because
+ * the whole thumb circle remains inside the touch-target area.
  *
  * @param position          Current position in [0f, 1f].
  * @param onPositionChanged Emits the new position in [0f, 1f] while the user drags.
@@ -228,24 +243,39 @@ private fun FrameSeekBar(
     onPositionChanged: (Float) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    // Pixel width of the track, captured once layout is known.
-    var trackWidthPx by remember { mutableFloatStateOf(0f) }
+    val density = LocalDensity.current
+
+    // Reserve this many px on each side so the thumb is never flush with the canvas edge.
+    // Using the glow radius keeps the halo fully visible even at position 0f / 1f.
+    val edgePaddingPx = with(density) { 13.dp.toPx() } // matches glowR below
+
+    // Pixel width of the canvas, captured once layout is known.
+    var canvasWidthPx by remember { mutableFloatStateOf(0f) }
+
+    // Derived track geometry, recomputed whenever the canvas width changes.
+    // trackStart / trackEnd are the x-coordinates of the two track end-points.
+    // trackLength is the distance the thumb actually travels.
+    val trackStart = edgePaddingPx
+    val trackLength = (canvasWidthPx - 2f * edgePaddingPx).coerceAtLeast(0f)
 
     Canvas(
         modifier = modifier
-            .height(40.dp)                      // tall touch target
-            .onSizeChanged { trackWidthPx = it.width.toFloat() }
+            .height(40.dp)
+            .onSizeChanged { canvasWidthPx = it.width.toFloat() }
             .pointerInput(Unit) {
                 detectDragGestures(
                     onDragStart = { offset ->
-                        if (trackWidthPx > 0f) {
-                            onPositionChanged((offset.x / trackWidthPx).coerceIn(0f, 1f))
+                        if (trackLength > 0f) {
+                            // Map the raw x coordinate into [0f, 1f] relative to the inset track.
+                            onPositionChanged(
+                                ((offset.x - trackStart) / trackLength).coerceIn(0f, 1f)
+                            )
                         }
                     },
                     onDrag = { change, _ ->
-                        if (trackWidthPx > 0f) {
+                        if (trackLength > 0f) {
                             onPositionChanged(
-                                (change.position.x / trackWidthPx).coerceIn(0f, 1f)
+                                ((change.position.x - trackStart) / trackLength).coerceIn(0f, 1f)
                             )
                         }
                     },
@@ -253,54 +283,145 @@ private fun FrameSeekBar(
             }
             .semantics { contentDescription = "Seek bar" },
     ) {
-        val cy = size.height / 2f
+        val cy         = size.height / 2f
         val trackStroke = 3.dp.toPx()
-        val thumbR = 9.dp.toPx()
-        val glowR = 13.dp.toPx()
-        val thumbX = position * size.width
+        val thumbR     = 9.dp.toPx()
+        val glowR      = 13.dp.toPx()          // must equal edgePaddingPx above
 
-        // ── Inactive track (full width, dark grey) ──
+        // trackEnd mirrors trackStart on the right side.
+        val trackEnd   = size.width - edgePaddingPx
+
+        // Thumb x-position is now within [trackStart, trackEnd] instead of [0, width].
+        val thumbX     = trackStart + position * trackLength
+
+        // ── Inactive track (full inset width, dark grey) ──
         drawLine(
-            color = Color(0xFF444444),
-            start = Offset(0f, cy),
-            end = Offset(size.width, cy),
+            color       = Color(0xFF444444),
+            start       = Offset(trackStart, cy),
+            end         = Offset(trackEnd, cy),
             strokeWidth = trackStroke,
-            cap = StrokeCap.Round,
+            cap         = StrokeCap.Round,
         )
 
         // ── Active track (left of thumb, red) ──
-        if (thumbX > 0f) {
+        if (thumbX > trackStart) {
             drawLine(
-                color = Color(0xFFFF3B30),
-                start = Offset(0f, cy),
-                end = Offset(thumbX, cy),
+                color       = Color(0xFFFF3B30),
+                start       = Offset(trackStart, cy),
+                end         = Offset(thumbX, cy),
                 strokeWidth = trackStroke,
-                cap = StrokeCap.Round,
+                cap         = StrokeCap.Round,
             )
         }
 
         // ── Thumb glow (semi-transparent halo) ──
         drawCircle(
-            color = Color(0x44FF3B30),
+            color  = Color(0x44FF3B30),
             radius = glowR,
             center = Offset(thumbX, cy),
         )
 
         // ── Thumb (solid red circle) ──
         drawCircle(
-            color = Color(0xFFFF3B30),
+            color  = Color(0xFFFF3B30),
             radius = thumbR,
             center = Offset(thumbX, cy),
         )
 
         // ── Thumb highlight (small bright centre dot) ──
         drawCircle(
-            color = Color(0xFFFF7A73),
+            color  = Color(0xFFFF7A73),
             radius = thumbR * 0.35f,
             center = Offset(thumbX, cy),
         )
     }
 }
+
+
+///**
+// * Custom red seek bar: inactive gray track, active red track, red draggable thumb.
+// *
+// * @param position          Current position in [0f, 1f].
+// * @param onPositionChanged Emits the new position in [0f, 1f] while the user drags.
+// */
+//@Composable
+//private fun FrameSeekBar(
+//    position: Float,
+//    onPositionChanged: (Float) -> Unit,
+//    modifier: Modifier = Modifier,
+//) {
+//    // Pixel width of the track, captured once layout is known.
+//    var trackWidthPx by remember { mutableFloatStateOf(0f) }
+//
+//    Canvas(
+//        modifier = modifier
+//            .height(40.dp)                      // tall touch target
+//            .onSizeChanged { trackWidthPx = it.width.toFloat() }
+//            .pointerInput(Unit) {
+//                detectDragGestures(
+//                    onDragStart = { offset ->
+//                        if (trackWidthPx > 0f) {
+//                            onPositionChanged((offset.x / trackWidthPx).coerceIn(0f, 1f))
+//                        }
+//                    },
+//                    onDrag = { change, _ ->
+//                        if (trackWidthPx > 0f) {
+//                            onPositionChanged((change.position.x / trackWidthPx).coerceIn(0f, 1f)
+//                            )
+//                        }
+//                    },
+//                )
+//            }
+//            .semantics { contentDescription = "Seek bar" },
+//    ) {
+//        val cy = size.height / 2f
+//        val trackStroke = 3.dp.toPx()
+//        val thumbR = 9.dp.toPx()
+//        val glowR = 13.dp.toPx()
+//        val thumbX = position * size.width
+//
+//        // ── Inactive track (full width, dark grey) ──
+//        drawLine(
+//            color = Color(0xFF444444),
+//            start = Offset(0f, cy),
+//            end = Offset(size.width, cy),
+//            strokeWidth = trackStroke,
+//            cap = StrokeCap.Round,
+//        )
+//
+//        // ── Active track (left of thumb, red) ──
+//        if (thumbX > 0f) {
+//            drawLine(
+//                color = Color(0xFFFF3B30),
+//                start = Offset(0f, cy),
+//                end = Offset(thumbX, cy),
+//                strokeWidth = trackStroke,
+//                cap = StrokeCap.Round,
+//            )
+//        }
+//
+//        // ── Thumb glow (semi-transparent halo) ──
+//        drawCircle(
+//            color = Color(0x44FF3B30),
+//            radius = glowR,
+//            center = Offset(thumbX, cy),
+//        )
+//
+//        // ── Thumb (solid red circle) ──
+//        drawCircle(
+//            color = Color(0xFFFF3B30),
+//            radius = thumbR,
+//            center = Offset(thumbX, cy),
+//        )
+//
+//        // ── Thumb highlight (small bright centre dot) ──
+//        drawCircle(
+//            color = Color(0xFFFF7A73),
+//            radius = thumbR * 0.35f,
+//            center = Offset(thumbX, cy),
+//        )
+//    }
+//}
 
 @Preview(showBackground = true)
 @Composable
@@ -309,8 +430,8 @@ private fun SingleFrameMovementControlPreview() {
         Surface(color = Color.Black) {
             var progress by remember { mutableFloatStateOf(0.5f) }
             SingleFrameMovementControl(
-                progress = progress,
-                onSelectSingleFrame = { progress = it },
+                appSliderPosition = progress,
+                onSliderMoved = { progress = it },
                 onSingleFrameForward = {},
                 onSingleFrameBackward = {}
             )

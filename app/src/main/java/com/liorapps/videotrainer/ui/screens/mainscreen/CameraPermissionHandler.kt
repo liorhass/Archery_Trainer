@@ -55,16 +55,16 @@ fun CameraPermissionHandler(
 
         when {
             ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED -> {
-                Timber.i("Camera permission granted")
+                Timber.i("#######CPH Camera permission granted")
                 onPermissionGranted()
             }
             isRationaleNeeded -> {
-                Timber.i("Camera permission denied - show rationale")
+                Timber.i("#######CPH Camera permission denied - show rationale")
                 showRationale = true
             }
             else -> {
                 // First time asking or hard-denied previously
-                Timber.i("Camera permission denied - request`")
+                Timber.i("#######CPH Camera permission denied - request`")
                 permissionLauncher.launch(Manifest.permission.CAMERA)
             }
         }
