@@ -1,6 +1,8 @@
 package com.liorapps.videotrainer.ui.screens.mainscreen
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -27,6 +29,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.ui.tooling.preview.Preview
 import com.liorapps.videotrainer.ui.theme.VideoTrainerTheme
 import androidx.compose.ui.unit.dp
+import com.liorapps.videotrainer.ui.theme.AppTheme
 
 /*
  By Claude Sonnet 4.6 Adaptive
@@ -97,10 +100,11 @@ fun SingleFrameMovementControl(
             Icon(
                 imageVector = Icons.Filled.SkipPrevious,
                 contentDescription = null, // already set on the button
-                tint = Color(0xFFFF3B30),
+//                tint = Color(0xFFFF3B30),
+                tint = AppTheme.colors.singleFrameSliderButtons,
                 modifier = Modifier
-                    .padding(start = 8.dp)
-                    .size(32.dp)
+                    .padding(start = 0.dp)
+                    .size(36.dp)
             )
         }
 
@@ -125,10 +129,11 @@ fun SingleFrameMovementControl(
             Icon(
                 imageVector = Icons.Filled.SkipNext,
                 contentDescription = null,
-                tint = Color(0xFFFF3B30),
+//                tint = Color(0xFFFF3B30),
+                tint = AppTheme.colors.singleFrameSliderButtons,
                 modifier = Modifier
-                    .padding(end = 8.dp)
-                    .size(32.dp)
+                    .padding(end = 0.dp)
+                    .size(36.dp)
             )
         }
     }
@@ -153,12 +158,17 @@ private fun FrameStepButton(
     Box(
         modifier = modifier
             .size(48.dp)
+//            .border(
+//                width = 1.dp,
+//                color = AppTheme.colors.singleFrameSliderButtons,
+//                shape = CircleShape
+//            )
 //            .shadow(elevation = 4.dp, shape = CircleShape)
             .clip(CircleShape)
 //            .background(Color(0xFF1E1E1E))
             .clickable(
                 interactionSource = interactionSource,
-                indication = ripple(bounded = true, color = Color(0xFFFF3B30)),
+                indication = ripple(bounded = true, color = AppTheme.colors.singleFrameSliderButtons),
                 onClick = onClick,
             )
             .semantics { this.contentDescription = contentDescription },
@@ -257,6 +267,11 @@ private fun FrameSeekBar(
     // trackLength is the distance the thumb actually travels.
     val trackStart = edgePaddingPx
     val trackLength = (canvasWidthPx - 2f * edgePaddingPx).coerceAtLeast(0f)
+    val singleFrameSliderActiveTrackLineColor = AppTheme.colors.singleFrameSliderActiveTrackLine
+    val singleFrameSliderInactiveTrackLineColor = AppTheme.colors.singleFrameSliderInactiveTrackLine
+    val singleFrameSliderThumb = AppTheme.colors.singleFrameSliderThumb
+    val singleFrameSliderThumbGlow = AppTheme.colors.singleFrameSliderThumbGlow
+    val singleFrameSliderThumbHighlight = AppTheme.colors.singleFrameSliderThumbHighlight
 
     Canvas(
         modifier = modifier
@@ -296,7 +311,7 @@ private fun FrameSeekBar(
 
         // ── Inactive track (full inset width, dark grey) ──
         drawLine(
-            color       = Color(0xFF444444),
+            color       = singleFrameSliderInactiveTrackLineColor,
             start       = Offset(trackStart, cy),
             end         = Offset(trackEnd, cy),
             strokeWidth = trackStroke,
@@ -306,7 +321,7 @@ private fun FrameSeekBar(
         // ── Active track (left of thumb, red) ──
         if (thumbX > trackStart) {
             drawLine(
-                color       = Color(0xFFFF3B30),
+                color       = singleFrameSliderActiveTrackLineColor,
                 start       = Offset(trackStart, cy),
                 end         = Offset(thumbX, cy),
                 strokeWidth = trackStroke,
@@ -316,21 +331,21 @@ private fun FrameSeekBar(
 
         // ── Thumb glow (semi-transparent halo) ──
         drawCircle(
-            color  = Color(0x44FF3B30),
+            color  = singleFrameSliderThumbGlow,
             radius = glowR,
             center = Offset(thumbX, cy),
         )
 
         // ── Thumb (solid red circle) ──
         drawCircle(
-            color  = Color(0xFFFF3B30),
+            color  = singleFrameSliderThumb,
             radius = thumbR,
             center = Offset(thumbX, cy),
         )
 
         // ── Thumb highlight (small bright centre dot) ──
         drawCircle(
-            color  = Color(0xFFFF7A73),
+            color  = singleFrameSliderThumbHighlight,
             radius = thumbR * 0.35f,
             center = Offset(thumbX, cy),
         )
