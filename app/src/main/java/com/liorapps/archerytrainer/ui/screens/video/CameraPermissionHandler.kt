@@ -1,4 +1,4 @@
-package com.liorapps.archerytrainer.ui.screens.mainscreen
+package com.liorapps.archerytrainer.ui.screens.video
 
 import android.Manifest
 import android.content.Context

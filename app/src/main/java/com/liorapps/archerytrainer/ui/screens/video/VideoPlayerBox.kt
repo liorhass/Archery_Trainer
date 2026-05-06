@@ -1,4 +1,4 @@
-package com.liorapps.archerytrainer.ui.screens.mainscreen
+package com.liorapps.archerytrainer.ui.screens.video
 
 import android.view.Surface
 import androidx.compose.foundation.layout.Arrangement

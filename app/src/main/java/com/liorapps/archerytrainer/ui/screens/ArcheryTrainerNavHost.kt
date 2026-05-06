@@ -31,7 +31,7 @@ import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.ui.NavDisplay
 import com.liorapps.archerytrainer.MainViewModel
 import com.liorapps.archerytrainer.navigation.NavKey
-import com.liorapps.archerytrainer.ui.screens.mainscreen.DelayedVideoShellScreen
+import com.liorapps.archerytrainer.ui.screens.video.DelayedVideoShellScreen
 import kotlinx.coroutines.launch
 
 @Composable
