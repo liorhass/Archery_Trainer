@@ -6,11 +6,11 @@ plugins {
 }
 
 android {
-    namespace = "com.liorapps.videotrainer"
+    namespace = "com.liorapps.archerytrainer"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.liorapps.videotrainer"
+        applicationId = "com.liorapps.archerytrainer"
         minSdk = 28
         targetSdk = 36
         versionCode = 1

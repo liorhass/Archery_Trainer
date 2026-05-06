@@ -22,5 +22,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Video Trainer"
+rootProject.name = "Archery Trainer"
 include(":app")

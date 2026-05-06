@@ -1,1 +1,3 @@
 /build
+/src/test/java/com/liorapps/archerytrainer/ExampleUnitTest.kt
+/src/androidTest/java/com/liorapps/archerytrainer/ExampleInstrumentedTest.kt
