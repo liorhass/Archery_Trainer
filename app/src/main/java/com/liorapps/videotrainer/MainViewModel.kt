@@ -22,10 +22,13 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import timber.log.Timber
@@ -76,7 +79,7 @@ class MainViewModel(application: Application, val settingsRepo: SettingsReposito
     // ─────────────────────────────────────────────────────────────────────────
     // TODO LH: convert all of these to StateFlow (like cameraPermissionState)
 
-    val backStack = mutableStateListOf<NavKey>(NavKey.Main)
+    val backStack = mutableStateListOf<NavKey>(NavKey.DelayedVideo)
 
     // Camera Selector State
     var selectedCamera by mutableStateOf(CameraSelector.DEFAULT_BACK_CAMERA)
@@ -102,16 +105,16 @@ class MainViewModel(application: Application, val settingsRepo: SettingsReposito
     var errorMessage: String? by mutableStateOf(null)
         private set
 
-    var isFullScreen: Boolean by mutableStateOf(false)
-        private set
-
     var horizontalDragSensitivity: Float by mutableFloatStateOf(60f) //todo from settings
         private set
 
+    private val _isFullScreen = MutableStateFlow<Boolean>(false)
+    val isFullScreen = _isFullScreen.asStateFlow()
+
     private val _cameraPermissionStateFlow = MutableStateFlow<CameraPermissionState>(CameraPermissionState.CHECKING)
     val cameraPermissionStateFlow = _cameraPermissionStateFlow.asStateFlow()
-    fun onCameraPermissionGranted() { _cameraPermissionStateFlow.value = CameraPermissionState.GRANTED }
-    fun onCameraPermissionDenied() { _cameraPermissionStateFlow.value = CameraPermissionState.DENIED }
+    fun onCameraPermissionGranted() { _cameraPermissionStateFlow.update { CameraPermissionState.GRANTED } }
+    fun onCameraPermissionDenied() { _cameraPermissionStateFlow.update { CameraPermissionState.DENIED } }
 
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -167,16 +170,17 @@ class MainViewModel(application: Application, val settingsRepo: SettingsReposito
     )
     val videoResolution: StateFlow<VideoTrainerDefaults.VideoResolution> = _videoResolution.asStateFlow()
 
-    private val _singleFrameSliderPosition = MutableStateFlow(0f)
+    private val _singleFrameSliderPositionFlow = MutableStateFlow(0f)
     @OptIn(ExperimentalCoroutinesApi::class)
-    val singleFrameSliderPosition: StateFlow<Float> = _singleFrameSliderPosition
+    val singleFrameSliderPositionFlow: StateFlow<Float> = _singleFrameSliderPositionFlow
         .filterNotNull()
+//        .drop(1) explain me
         .flatMapLatest { value ->
             flow {
                 val result = withContext(Dispatchers.IO) {
+                    Timber.d("#######VM singleFrameScrollbarPosition changed. position=${_singleFrameSliderPositionFlow.value}")
                     singleFrameDisplayer.displayFrameByRelativeLocation(value)
-                    Timber.d("#######VM singleFrameScrollbarPosition changed. position=${_singleFrameSliderPosition.value}")
-                    _singleFrameSliderPosition.value
+                    _singleFrameSliderPositionFlow.value
                 }
                 emit(result)
             }
@@ -184,7 +188,7 @@ class MainViewModel(application: Application, val settingsRepo: SettingsReposito
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),
-//            started = SharingStarted.Eagerly,
+//            started = SharingStarted.Lazily, // Eagerly,
             initialValue = 0f
         )
 //    val singleFrameScrollbarPosition: StateFlow<Float> = _singleFrameSliderPosition.asStateFlow()
@@ -226,10 +230,11 @@ class MainViewModel(application: Application, val settingsRepo: SettingsReposito
                     if (currentSurface != null) {
                         if (singleFrameDisplayer.initialize(currentSurface!!)) {
                             singleFrameDisplayer.seekToLastFrame()  // When we pause, we display the last captured frame
-                            _singleFrameSliderPosition.value = 1.0f
+                            Timber.d("#######VM singleFrameDisplayer _singleFrameSliderPositionFlow.value = 1.0f")
+                            _singleFrameSliderPositionFlow.update { 1.0f } // When we pause we display the last frame captured
 //                            singleFrameDisplayer.displayFrameByRelativeLocation(1.0f)
                         } else {
-                            Timber.w("#######VM singleFrameDisplayer.setupDecoder() failed")
+                            Timber.w("#######VM singleFrameDisplayer.initialize() failed")
                         }
                     } else {
                         Timber.e("#######VM currentSurface=null")
@@ -240,10 +245,10 @@ class MainViewModel(application: Application, val settingsRepo: SettingsReposito
     }
 
     fun setIsFullScreen(newIsFullScreen: Boolean) {
-        isFullScreen = newIsFullScreen
+        _isFullScreen.update { newIsFullScreen }
     }
     fun toggleIsFullScreen() {
-        isFullScreen = !isFullScreen
+        _isFullScreen.update { !it }
     }
 
     /**
@@ -296,6 +301,7 @@ class MainViewModel(application: Application, val settingsRepo: SettingsReposito
         Timber.d("#######VM onSurfaceDestroyed()")
         decoderJob?.cancel()
         decoderJob = null
+        singleFrameDisplayer.release()
         currentSurface = null
     }
 
@@ -509,8 +515,8 @@ class MainViewModel(application: Application, val settingsRepo: SettingsReposito
     }
 
     fun onSetSingleFrameLocation(value: Float) {
-//        Timber.d("#######VM onSetSingleFrameLocation() value=$value")
-        _singleFrameSliderPosition.value = value
+        Timber.d("#######VM onSetSingleFrameLocation() value=$value")
+        _singleFrameSliderPositionFlow.update { value }
     }
     fun onSingleFrameForward() {
         viewModelScope.launch(Dispatchers.IO) {
@@ -531,8 +537,8 @@ class MainViewModel(application: Application, val settingsRepo: SettingsReposito
 
     fun navigateBack() {
         when {
-            isFullScreen       -> setIsFullScreen(false)
-            backStack.size > 1 -> backStack.removeAt(backStack.size - 1)
+            _isFullScreen.value -> setIsFullScreen(false)
+            backStack.size > 1  -> backStack.removeAt(backStack.lastIndex)
         }
     }
 
@@ -560,6 +566,7 @@ class MainViewModel(application: Application, val settingsRepo: SettingsReposito
      * Called by the composable whenever a drag event occurs
      */
     fun onHorizontalDragOverVideo(currentX: Float) {
+        if (ringBuffer.count == 0) return
         if (playbackState != PlaybackState.PAUSED) {
             Timber.e("#######VM onHorizontalDragOverVideo(): but not PAUSED")
             return
@@ -570,8 +577,9 @@ class MainViewModel(application: Application, val settingsRepo: SettingsReposito
         if (abs(deltaX) >= horizontalDragSensitivity) {
             val frameIndexDelta = (deltaX / horizontalDragSensitivity).roundToInt()
             val targetFrameIndex = frameIndexWhenTouched + frameIndexDelta
-            _singleFrameSliderPosition.value =
+            _singleFrameSliderPositionFlow.update {
                 targetFrameIndex.toFloat() / ringBuffer.count.toFloat()
+            }
         }
 
 //        val nTotalFrames = ringBuffer.count

@@ -10,15 +10,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import android.content.res.Configuration
-import android.view.Surface
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.input.pointer.PointerEventPass
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -26,14 +22,13 @@ import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.liorapps.videotrainer.CameraPermissionState
 import com.liorapps.videotrainer.MainViewModel
 import com.liorapps.videotrainer.PlaybackState
-import com.liorapps.videotrainer.VideoTrainerDefaults
-import com.liorapps.videotrainer.ui.theme.VideoTrainerTheme
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalPermissionsApi::class)
 @Composable
-fun MainScreen(
+fun DelayedVideoShellScreen(
     viewModel: MainViewModel = viewModel(),
-    onNavigateToSettings: () -> Unit
+    onNavigateToSettings: () -> Unit,
+    onOpenDrawer: () -> Unit,
 ) {
     val cameraPermissionState by viewModel.cameraPermissionStateFlow.collectAsStateWithLifecycle()
 
@@ -45,21 +40,22 @@ fun MainScreen(
     )
 
     if (cameraPermissionState == CameraPermissionState.GRANTED) {
-        MainScreenContent(viewModel, onNavigateToSettings)
+        DelayedVideoScreen(viewModel, onOpenDrawer, onNavigateToSettings)
     } else {
         NoCameraPermissionMsg()
     }
 }
 
 @Composable
-fun MainScreenContent(
+fun DelayedVideoScreen(
     viewModel: MainViewModel,
+    onOpenDrawer: () -> Unit,
     onNavigateToSettings: () -> Unit
 ) {
     val videoResolution by viewModel.videoResolution.collectAsStateWithLifecycle()
     val settings by viewModel.settingsFlow.collectAsStateWithLifecycle()
-    val isFullScreen = viewModel.isFullScreen
-    val singleFrameSliderPosition by viewModel.singleFrameSliderPosition.collectAsStateWithLifecycle()
+    val isFullScreen by viewModel.isFullScreen.collectAsStateWithLifecycle()
+    val singleFrameSliderPosition by viewModel.singleFrameSliderPositionFlow.collectAsStateWithLifecycle()
     val horizontalDragSensitivity = viewModel.horizontalDragSensitivity
 
     // A launchedEffect to set the window as necessary (e.g. to show or hide system bars)
@@ -105,7 +101,12 @@ fun MainScreenContent(
         } else { // Not at full screen
             Scaffold(
                 modifier = Modifier.fillMaxSize(),
-                topBar = { TopBar(onNavigateToSettings) }
+                topBar = {
+                    DelayedVideoTopBar(
+                        onOpenDrawer = onOpenDrawer,
+                        onNavigateToSettings = onNavigateToSettings,
+                    )
+                }
             ) { innerPadding ->
                 VideoPlayerBox(
                     innerPadding = innerPadding,
@@ -189,9 +190,17 @@ fun MainScreenContent(
 
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
-private fun TopBar(onNavigateToSettings: () -> Unit) {
+private fun DelayedVideoTopBar(
+    onOpenDrawer: () -> Unit,
+    onNavigateToSettings: () -> Unit,
+) {
     TopAppBar(
         title = { Text("Video Trainer") },
+        navigationIcon = {
+            IconButton(onClick = onOpenDrawer) {
+                Icon(Icons.Default.Menu, "Open drawer")
+            }
+        },
         actions = {
             IconButton(onClick = onNavigateToSettings) {
                 Icon(Icons.Rounded.Settings, contentDescription = "Settings")

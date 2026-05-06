@@ -4,6 +4,9 @@ import android.media.MediaCodec
 import android.media.MediaFormat
 import android.view.Surface
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import timber.log.Timber
@@ -38,6 +41,14 @@ class SingleFrameDisplayer(
     private val nalBuffer: NalRingBuffer.AsLinearBuffer,
 ) {
     private var decoder: MediaCodec? = null
+
+    // A flag (that we can wait to become true) indicating whether the decoder is started or not
+    val decoderStartedStateFlow = MutableStateFlow(false)
+
+    // A simple protection against a situation where multiple calls to seekToFrame() are done
+    // in quick succession, and the decoder throws an exception of illegal state
+    val decoderMutex = Mutex()
+
     private val bufferInfo = MediaCodec.BufferInfo()
 
     // --- Decoder session state ---
@@ -65,10 +76,6 @@ class SingleFrameDisplayer(
         private const val OUTPUT_TIMEOUT_US = 10_000L
     }
 
-    // A simple protection against a situation where multiple calls to seekToFrame() are done
-    // in quick succession, and the decoder throws an exception of illegal state
-    val decoderMutex = Mutex()
-
     /**
      * Initializes and starts the MediaCodec decoder using the provided [surface].
      *
@@ -80,10 +87,17 @@ class SingleFrameDisplayer(
      * @return True if the decoder is ready, false if configuration failed.
      */
     suspend fun initialize(surface: Surface): Boolean {
+        if (!surface.isValid) {
+            Timber.e("#######S invalid surface")
+            return false
+        }
         if (! cameraAndCodecConfig.isConfigurationValid()) {
-            delay(50)
+            delay(20)
             if (! cameraAndCodecConfig.isConfigurationValid()) {
-                Timber.e("#######S ! cameraAndCodecConfig.isConfigurationValid()")
+                // This is OK on the app's startup. Since video is PAUSED, the VM tries to display
+                // a single frame, but since no video was ever captured, there is no camera and
+                // codec config yet
+                Timber.d("#######S ! cameraAndCodecConfig.isConfigurationValid()")
                 return false
             }
         }
@@ -105,19 +119,19 @@ class SingleFrameDisplayer(
         videoFormat.setInteger(MediaFormat.KEY_ROTATION, rotation)
 
         decoder = MediaCodec.createDecoderByType(MediaFormat.MIMETYPE_VIDEO_AVC)
-        if (!surface.isValid) {
-            Timber.e("#######S invalid surface")
-            return false
-        }
         Timber.d("#######S calling decoder.configure() surface.isValid=${surface.isValid} sps-size=${cameraAndCodecConfig.sps?.capacity()}")
         decoder?.configure(videoFormat, surface, null, 0)
         decoder?.start()
+
+        decoderStartedStateFlow.update { true }
+        Timber.d("#######S initialize(): returning")
         return true
     }
 
     /** stop(), release() and set decoder to null */
     fun release() {
         Timber.d("#######S releaseDecoder()")
+        decoderStartedStateFlow.update { false }
         runCatching { decoder?.stop() }
             .onFailure { Timber.e(it, "#######S decoder.stop() failed") }
         runCatching { decoder?.release() }
@@ -164,9 +178,13 @@ class SingleFrameDisplayer(
             Timber.d("#######S decoder is null")
             return
         }
+
+        // Wait for the decoder to become "started"
+        decoderStartedStateFlow.first { it }
+
         val keyframeIndex = findKeyframeForFrame(targetIndex)
         require(keyframeIndex >= 0) { "No Keyframe for frame $targetIndex so it cannot be displayed" }
-//        Timber.d("#######S seekToFrame() targetIndex=$targetIndex  keyframeIndex=$keyframeIndex")
+        Timber.d("#######S seekToFrame() targetIndex=$targetIndex  keyframeIndex=$keyframeIndex")
 
         val needsFlush = (keyframeIndex != sessionKeyframeIndex) || // different keyframe group
                          (targetIndex   <= currentFrameIndex)     // going backward
@@ -195,7 +213,7 @@ class SingleFrameDisplayer(
                 val lastToFeed = (targetIndex + CODEC_LATENCY).coerceAtMost(lastFrameIndex)
 
                 if (nextToFeed <= lastToFeed) {
-                    val inputIndex = decoder?.dequeueInputBuffer(INPUT_TIMEOUT_US) ?: -1
+                    val inputIndex = decoder?.dequeueInputBuffer(INPUT_TIMEOUT_US) ?: -1  //todo: no timeout - it blocks the thread
                     if (inputIndex >= 0) {
                         val nalData = nalBuffer.getFrameData(nextToFeed)
                         val inputBuf = decoder?.getInputBuffer(inputIndex)!!
@@ -215,7 +233,7 @@ class SingleFrameDisplayer(
                         )
                         lastFedFrameIndex = nextToFeed
                     } else {
-                        Timber.e("#######S decoder.dequeueInputBuffer() returned $inputIndex")
+                        Timber.e(Throwable(), "#######S decoder.dequeueInputBuffer() returned $inputIndex  returned $inputIndex")
                     }
                 }
 
@@ -260,6 +278,7 @@ class SingleFrameDisplayer(
      * so 0.0 = first displayable frame, 1.0 = last frame.
      */
     suspend fun displayFrameByRelativeLocation(percentage: Float) {
+        Timber.d("#######S displayFrameByRelativeLocation()")
         val first = firstDisplayableIndex
         val last = lastFrameIndex
         val displayableCount = last - first + 1
@@ -272,6 +291,7 @@ class SingleFrameDisplayer(
     /** Display the frame we displayed last. Used when the surface is destroyed and then becomes
      * available again (e.g. app goes to the background and back) */
     suspend fun redisplayLastDisplayedFrame() {
+        Timber.d("#######S redisplayLastDisplayedFrame()")
         val current = currentFrameIndex
         val frameIndex = if (current < 0) firstDisplayableIndex else current
         if (frameIndex <= lastFrameIndex) {
@@ -280,6 +300,7 @@ class SingleFrameDisplayer(
     }
 
     suspend fun displayNextFrame() {
+        Timber.d("#######S displayNextFrame()")
         val current = currentFrameIndex
         val next = if (current < 0) firstDisplayableIndex else current + 1
         if (next <= lastFrameIndex) {
@@ -288,7 +309,7 @@ class SingleFrameDisplayer(
     }
 
     suspend fun displayPreviousFrame() {
-//        Timber.d("#######S displayPreviousFrame() current=$currentFrameIndex  firstDisplayableIndex=$firstDisplayableIndex")
+        Timber.d("#######S displayPreviousFrame() current=$currentFrameIndex  firstDisplayableIndex=$firstDisplayableIndex")
         val current = currentFrameIndex
         if (current > firstDisplayableIndex) {
             seekToFrame(current - 1)
@@ -296,7 +317,7 @@ class SingleFrameDisplayer(
     }
 
     suspend fun seekToLastFrame() {
-//        Timber.d("#######S seekToLastFrame() lastFrameIndex=$lastFrameIndex")
+        Timber.d("#######S seekToLastFrame() lastFrameIndex=$lastFrameIndex")
         seekToFrame(lastFrameIndex)
     }
 //    }

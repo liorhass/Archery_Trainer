@@ -29,7 +29,8 @@ import kotlin.math.roundToInt
 @Composable
 fun SettingsScreen(
     viewModel: MainViewModel = viewModel(),
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    onOpenDrawer: () -> Unit,
 ) {
     val settings by viewModel.settingsFlow.collectAsStateWithLifecycle()
 
