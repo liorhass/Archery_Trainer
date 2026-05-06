@@ -11,6 +11,11 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.liorapps.archerytrainer.logic.video.CameraAndCodecConfig
+import com.liorapps.archerytrainer.logic.video.DecoderCoroutine
+import com.liorapps.archerytrainer.logic.video.EncoderCoroutine
+import com.liorapps.archerytrainer.logic.video.NalRingBuffer
+import com.liorapps.archerytrainer.logic.video.SingleFrameDisplayer
 import com.liorapps.archerytrainer.navigation.NavKey
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineName
@@ -37,7 +42,7 @@ import kotlin.math.roundToInt
  * PlaybackState — the only two states visible to the UI.
  *
  * The decoder's internal PLAYING / FROZEN / CATCHING_UP state machine is an
- * implementation detail of [DecoderCoroutine] and is intentionally not
+ * implementation detail of [com.liorapps.archerytrainer.logic.video.DecoderCoroutine] and is intentionally not
  * surfaced here.
  */
 enum class PlaybackState { PAUSED, PLAYING }
@@ -59,7 +64,7 @@ enum class CameraPermissionState { CHECKING, GRANTED, DENIED }
  * Does NOT
  * ─────────
  * • Touch [MediaCodec] directly — all codec operations stay inside the coroutine classes.
- * • Hold strong references to [EncoderCoroutine] or [DecoderCoroutine] beyond their [Job]
+ * • Hold strong references to [com.liorapps.archerytrainer.logic.video.EncoderCoroutine] or [com.liorapps.archerytrainer.logic.video.DecoderCoroutine] beyond their [Job]
  *   handles; they are fire-and-cancel objects.
  * • Manage the decoder's internal state machine.
  *
@@ -69,7 +74,7 @@ enum class CameraPermissionState { CHECKING, GRANTED, DENIED }
  * The coroutines run on [Dispatchers.IO].  Cross-thread shared state is synchronized
  * exactly as specified in §11 of the architecture plan.
  *
- * @param application  Application context forwarded to [EncoderCoroutine] for [CameraManager].
+ * @param application  Application context forwarded to [com.liorapps.archerytrainer.logic.video.EncoderCoroutine] for [CameraManager].
  */
 class MainViewModel(application: Application, val settingsRepo: SettingsRepository) : AndroidViewModel(application) {
     // ─────────────────────────────────────────────────────────────────────────
@@ -131,12 +136,13 @@ class MainViewModel(application: Application, val settingsRepo: SettingsReposito
      * The @Volatile annotation on the *reference* (this field) is the synchronization
      * primitive mandated by §11.  The element [codecConfigDataHolder][0] is written
      * exactly once per session by the encoder coroutine, before the decoder coroutine
-     * reads it; [DecoderCoroutine.waitForCodecConfig] polls with coroutine [delay] calls,
+     * reads it; [com.liorapps.archerytrainer.logic.video.DecoderCoroutine.waitForCodecConfig] polls with coroutine [delay] calls,
      * whose suspension points provide the necessary visibility across threads.
      */
     private val cameraAndCodecConfig = CameraAndCodecConfig()
 
-    val singleFrameDisplayer = SingleFrameDisplayer(cameraAndCodecConfig, ringBuffer.AsLinearBuffer())
+    val singleFrameDisplayer =
+        SingleFrameDisplayer(cameraAndCodecConfig, ringBuffer.AsLinearBuffer())
 
     /**
      * Signals the decoder to execute the jump sequence (§9) when the user reduces [delaySec].
@@ -157,10 +163,10 @@ class MainViewModel(application: Application, val settingsRepo: SettingsReposito
      */
     private var currentSurface: Surface? = null
 
-    /** Coroutine job for [EncoderCoroutine.run]. Null when the pipeline is stopped. */
+    /** Coroutine job for [com.liorapps.archerytrainer.logic.video.EncoderCoroutine.run]. Null when the pipeline is stopped. */
     private var encoderJob: Job? = null
 
-    /** Coroutine job for [DecoderCoroutine.run]. Null when stopped or surface is unavailable. */
+    /** Coroutine job for [com.liorapps.archerytrainer.logic.video.DecoderCoroutine.run]. Null when stopped or surface is unavailable. */
     private var decoderJob: Job? = null
 
     private val _videoResolution = MutableStateFlow<ArcheryTrainerDefaults.VideoResolution>(
@@ -255,7 +261,7 @@ class MainViewModel(application: Application, val settingsRepo: SettingsReposito
      * If the pipeline is already PLAYING (i.e. [startPipeline] was called before the surface
      * arrived) and the decoder is not yet running, the decoder job is launched immediately.
      *
-     * @param surface  The hardware surface that [DecoderCoroutine] will render into.
+     * @param surface  The hardware surface that [com.liorapps.archerytrainer.logic.video.DecoderCoroutine] will render into.
      */
     fun onSurfaceReady(surface: Surface) {
         Timber.d("#######VM onSurfaceReady() playbackState=$playbackState")
@@ -377,9 +383,9 @@ class MainViewModel(application: Application, val settingsRepo: SettingsReposito
         encoderJob = viewModelScope.launch(Dispatchers.IO + CoroutineName("ATEncoderCoroutine")) {
             try {
                 EncoderCoroutine(
-                    context               = getApplication(),
-                    ringBuffer            = ringBuffer,
-                    cameraAndCodecConfig  = cameraAndCodecConfig,
+                    context = getApplication(),
+                    ringBuffer = ringBuffer,
+                    cameraAndCodecConfig = cameraAndCodecConfig,
 //                    codecConfigDataHolder = codecConfigDataHolder,
 //                    onError               = ::handleEncoderError,
                 ).run()
@@ -401,10 +407,10 @@ class MainViewModel(application: Application, val settingsRepo: SettingsReposito
                 Timber.d("#######VM launchDecoderJob()")
                 DecoderCoroutine(
 //                    decoder               = decoder,
-                    nalRingBuffer         = ringBuffer,
-                    cameraAndCodecConfig  = cameraAndCodecConfig,
-                    outputSurface         = surface,
-                    delaySecProvider      = { settingsFlow.value.delaySec },
+                    nalRingBuffer = ringBuffer,
+                    cameraAndCodecConfig = cameraAndCodecConfig,
+                    outputSurface = surface,
+                    delaySecProvider = { settingsFlow.value.delaySec },
 //                    jumpChannel           = jumpChannel,
 //                    onError               = ::handleDecoderError,
                 ).run()

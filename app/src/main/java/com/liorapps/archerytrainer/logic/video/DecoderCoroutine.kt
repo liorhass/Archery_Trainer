@@ -1,8 +1,9 @@
-package com.liorapps.archerytrainer
+package com.liorapps.archerytrainer.logic.video
 
 import android.media.MediaCodec
 import android.media.MediaFormat
 import android.view.Surface
+import com.liorapps.archerytrainer.ArcheryTrainerDefaults
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay

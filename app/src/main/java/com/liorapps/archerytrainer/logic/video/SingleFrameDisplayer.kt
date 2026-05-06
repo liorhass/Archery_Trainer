@@ -1,8 +1,9 @@
-package com.liorapps.archerytrainer
+package com.liorapps.archerytrainer.logic.video
 
 import android.media.MediaCodec
 import android.media.MediaFormat
 import android.view.Surface
+import com.liorapps.archerytrainer.ArcheryTrainerDefaults
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first

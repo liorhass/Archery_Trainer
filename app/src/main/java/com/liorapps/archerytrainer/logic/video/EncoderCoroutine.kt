@@ -1,4 +1,4 @@
-package com.liorapps.archerytrainer
+package com.liorapps.archerytrainer.logic.video
 
 import android.Manifest
 import android.content.Context
@@ -19,6 +19,7 @@ import android.util.Size
 import android.view.Surface
 import androidx.annotation.RequiresPermission
 import com.google.android.gms.common.util.concurrent.HandlerExecutor
+import com.liorapps.archerytrainer.ArcheryTrainerDefaults
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext

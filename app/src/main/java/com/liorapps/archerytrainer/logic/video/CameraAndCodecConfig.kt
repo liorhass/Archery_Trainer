@@ -1,4 +1,4 @@
-package com.liorapps.archerytrainer
+package com.liorapps.archerytrainer.logic.video
 
 import java.nio.ByteBuffer
 

@@ -1,4 +1,4 @@
-package com.liorapps.archerytrainer
+package com.liorapps.archerytrainer.logic.video
 
 import java.nio.ByteBuffer
 
@@ -380,7 +380,7 @@ class NalRingBuffer(
 
         /**
          * Default metadata capacity: 30 s × 30 fps × 1.33 headroom ≈ 1200 slots.
-         * Matches [ArcheryTrainerDefaults.MAX_FRAMES].
+         * Matches [com.liorapps.archerytrainer.ArcheryTrainerDefaults.MAX_FRAMES].
          */
         const val DEFAULT_MAX_FRAMES: Int = 1200
     }
