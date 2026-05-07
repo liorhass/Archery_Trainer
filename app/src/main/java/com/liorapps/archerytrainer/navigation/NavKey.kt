@@ -11,4 +11,7 @@ sealed class NavKey(
 
     @Serializable
     data object Settings : NavKey(requiresSlideGestures = false)
+
+    // Screens that carry navigation data as part of the key
+//    @Serializable data class ExampleWithItemDetail(val itemId: String) : NavKey(requiresSlideGestures = false)
 }

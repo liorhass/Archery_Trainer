@@ -1,4 +1,4 @@
-package com.liorapps.archerytrainer.ui.screens.video
+package com.liorapps.archerytrainer.screens.video.ui
 
 import androidx.activity.compose.LocalActivity
 import androidx.compose.runtime.*

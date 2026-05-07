@@ -1,4 +1,4 @@
-package com.liorapps.archerytrainer.ui.screens
+package com.liorapps.archerytrainer.navigation
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
@@ -26,72 +26,93 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.NavEntry
+import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
-import com.liorapps.archerytrainer.MainViewModel
-import com.liorapps.archerytrainer.navigation.NavKey
-import com.liorapps.archerytrainer.ui.screens.video.DelayedVideoShellScreen
+//import androidx.navigation3.ui.rememberSceneSetupNavEntryDecorator
+import com.liorapps.archerytrainer.ArcheryTrainerApplication
+import com.liorapps.archerytrainer.screens.settings.SettingsScreen
+import com.liorapps.archerytrainer.screens.settings.SettingsViewModel
+import com.liorapps.archerytrainer.screens.video.logic.DelayedVideoViewModel
+import com.liorapps.archerytrainer.screens.video.ui.DelayedVideoShellScreen
 import kotlinx.coroutines.launch
 
 @Composable
-fun ArcheryTrainerNavHost(viewModel: MainViewModel) {
+fun ArcheryTrainerNavHost(navigationViewModel: NavigationViewModel) {
     val drawerState  = rememberDrawerState(DrawerValue.Closed)
     val scope        = rememberCoroutineScope()
+    val app          = LocalContext.current.applicationContext as ArcheryTrainerApplication
 
-//    BackHandler(enabled = viewModel.backStack.size > 1) { //todo: enabled probably can be simply always true
-//        viewModel.navigateBack()
-//    }
+    // Navigation 3 requires these decorators to provide Lifecycle, SavedState, and ViewModel support
+//    val sceneDecorator = rememberSceneSetupNavEntryDecorator()
+    val savedStateDecorator = rememberSaveableStateHolderNavEntryDecorator<NavKey>()
+    val viewModelStoreDecorator = rememberViewModelStoreNavEntryDecorator<NavKey>()
 
     ModalNavigationDrawer(
-        drawerState    = drawerState,
+        drawerState = drawerState,
         // Prevent accidental swipe-open while in full-screen
-        gesturesEnabled = drawerState.isOpen || ( ! (viewModel.backStack.lastOrNull()?.requiresSlideGestures ?: false) ),
-        drawerContent  = {
+        gesturesEnabled = drawerState.isOpen || (!(navigationViewModel.backStack.lastOrNull()?.requiresSlideGestures
+            ?: false)),
+        drawerContent = {
             AppDrawerContent(
-                currentRoute = viewModel.backStack.lastOrNull(),
-                onNavigate   = { navKey ->
-                    viewModel.navigateTo(navKey)
+                currentRoute = navigationViewModel.backStack.lastOrNull(),
+                onNavigate = { navKey ->
+                    navigationViewModel.navigateTo(navKey)
 //                    viewModel.backStack.clear(); viewModel.backStack.add(navKey)
                     scope.launch { drawerState.close() }
                 }
             )
         }
     ) {
-        Box(Modifier.fillMaxSize()) {
+        Box(Modifier.Companion.fillMaxSize()) {
             NavDisplay(
-                backStack     = viewModel.backStack,
-                onBack        = { viewModel.backStack.removeLastOrNull() },
+                backStack = navigationViewModel.backStack,
+                onBack = { navigationViewModel.navigateBack() },
+                entryDecorators  = listOf(savedStateDecorator, viewModelStoreDecorator),
                 entryProvider = { key: NavKey ->
                     when (key) {
-                        NavKey.DelayedVideo -> NavEntry(key) {
+                        is NavKey.DelayedVideo -> NavEntry(key) {
+                            val viewModel: DelayedVideoViewModel = viewModel(
+                                factory = DelayedVideoViewModel.Factory(app, app.settingsRepository)
+                            )
                             DelayedVideoShellScreen(
-                                onNavigateToSettings = { viewModel.navigateTo(NavKey.Settings) },
-                                onOpenDrawer         = { scope.launch { drawerState.open() } }
+                                viewModel = viewModel,
+                                onNavigateToSettings = { navigationViewModel.navigateTo(NavKey.Settings) },
+                                onOpenDrawer = { scope.launch { drawerState.open() } }
                             )
                         }
-                        NavKey.Settings -> NavEntry(key) {
+
+                        is NavKey.Settings -> NavEntry(key) {
+                            val viewModel: SettingsViewModel = viewModel(
+                                factory = SettingsViewModel.Factory(app.settingsRepository)
+                            )
                             SettingsScreen(
-                                onNavigateBack = { viewModel.navigateBack() },
-                                onOpenDrawer   = { scope.launch { drawerState.open() } },
+                                viewModel = viewModel,
+                                onNavigateBack = { navigationViewModel.navigateBack() },
+                                onOpenDrawer = { scope.launch { drawerState.open() } },
                             )
                         }
+
+//                        is NavKey.ExampleWithItemDetail -> NavEntry(key) {
+//                            // The key itself carries the itemId — no shared mutable state needed
+//                            val viewModel: ExampleWithItemDetailViewModel = viewModel(
+//                                factory = ExampleWithItemDetailViewModel.Factory(
+//                                    itemId              = key.itemId,
+//                                    settingsRepository  = app.settingsRepository
+//                                )
+//                            )
+//                            ExampleWithItemDetailShellScreen(
+//                                viewModel      = viewModel,
+//                                onNavigateBack = { navigationViewModel.navigateBack() }
+//                            )
+//                        }
                     }
                 }
             )
-//                entryProvider = entryProvider {
-//                    entry<HomeRoute> {
-//                        HomeScreen(onOpenDrawer = { scope.launch { drawerState.open() } })
-//                    }
-//                    entry<DetailRoute> {
-//                        DetailScreen(
-//                            isFullScreen      = uiState.isFullScreen,
-//                            onToggleFullScreen = viewModel::toggleFullScreen,
-//                            onOpenDrawer      = { scope.launch { drawerState.open() } }
-//                        )
-//                    }
-//                }
-//            )
 
             // ↑ NavDisplay registers its BackHandler first (composed first).
             // This BackHandler is composed AFTER it, so it wins when enabled —
@@ -105,52 +126,7 @@ fun ArcheryTrainerNavHost(viewModel: MainViewModel) {
             }
         }
     }
-
-
-
-//    NavDisplay(
-//        backStack = viewModel.backStack,
-//        modifier = Modifier.fillMaxSize(),
-//        onBack = { viewModel.navigateBack() }
-//    ) { key: NavKey ->
-//        when (key) {
-//            NavKey.DelayedVideo -> NavEntry(key) {
-//                DelayedVideoShellScreen(
-//                    onNavigateToSettings = { viewModel.navigateTo(NavKey.Settings) }
-//                )
-//            }
-//            NavKey.Settings -> NavEntry(key) {
-//                SettingsScreen(
-//                    onNavigateBack = { viewModel.navigateBack() }
-//                )
-//            }
-//        }
-//    }
-
 }
-
-// ─── Drawer Content ───────────────────────────────────────────────────────────
-//@Composable
-//fun AppDrawerContent(
-//    currentRoute: NavKey?,
-//    onNavigate: (NavKey) -> Unit,
-//) {
-//    ModalDrawerSheet {
-//        Spacer(Modifier.height(12.dp))
-//        NavigationDrawerItem(
-//            label    = { Text("Delayed Video") },
-//            selected = currentRoute == NavKey.DelayedVideo,
-//            onClick  = { onNavigate(NavKey.DelayedVideo) },
-//            icon     = { Icon(Icons.Default.VideoCameraFront, null) }
-//        )
-//        NavigationDrawerItem(
-//            label    = { Text("Settings") },
-//            selected = currentRoute == NavKey.Settings,
-//            onClick  = { onNavigate(NavKey.Settings) },
-//            icon     = { Icon(Icons.Default.Settings, null) }
-//        )
-//    }
-//}
 
 
 @Composable
@@ -163,31 +139,31 @@ fun AppDrawerContent(
     ModalDrawerSheet {
         Text(
             text = "My App Title",
-            modifier = Modifier.padding(horizontal = 28.dp, vertical = 24.dp),
+            modifier = Modifier.Companion.padding(horizontal = 28.dp, vertical = 24.dp),
             style = MaterialTheme.typography.titleLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.Companion.height(8.dp))
 
         StandardDrawerItem(
-            label    = "Delayed Video",
-            icon     = Icons.Default.VideoCameraFront,
+            label = "Delayed Video",
+            icon = Icons.Default.VideoCameraFront,
             selected = currentRoute == NavKey.DelayedVideo,
-            onClick  = { onNavigate(NavKey.DelayedVideo) }
+            onClick = { onNavigate(NavKey.DelayedVideo) }
         )
         StandardDrawerItem(
-            label    = "Settings",
-            icon     = Icons.Default.Settings,
+            label = "Settings",
+            icon = Icons.Default.Settings,
             selected = currentRoute == NavKey.Settings,
-            onClick  = { onNavigate(NavKey.Settings) }
+            onClick = { onNavigate(NavKey.Settings) }
         )
 
         StandardDrawerItem(
             label = "Home",
             icon = Icons.Default.Home,
             selected = false,
-            onClick = {  }
+            onClick = { }
         )
         StandardDrawerItem(
             label = "Profile",
@@ -197,7 +173,7 @@ fun AppDrawerContent(
         )
 
         HorizontalDivider(
-            modifier = Modifier.padding(vertical = 12.dp, horizontal = 28.dp),
+            modifier = Modifier.Companion.padding(vertical = 12.dp, horizontal = 28.dp),
             thickness = 1.dp,
             color = MaterialTheme.colorScheme.outlineVariant
         )
@@ -230,6 +206,6 @@ fun StandardDrawerItem(
         selected = selected,
         onClick = onClick,
         // NavigationDrawerItemDefaults.ItemPadding provides the standard 12.dp horizontal margin
-        modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+        modifier = Modifier.Companion.padding(NavigationDrawerItemDefaults.ItemPadding)
     )
 }

@@ -1,21 +1,21 @@
-package com.liorapps.archerytrainer
+package com.liorapps.archerytrainer.screens.video.logic
 
+import android.Manifest
 import android.app.Application
-import android.media.MediaCodec
 import android.view.Surface
 import androidx.annotation.RequiresPermission
 import androidx.camera.core.CameraSelector
-import androidx.compose.foundation.AndroidExternalSurface
-import androidx.compose.runtime.*
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.liorapps.archerytrainer.logic.video.CameraAndCodecConfig
-import com.liorapps.archerytrainer.logic.video.DecoderCoroutine
-import com.liorapps.archerytrainer.logic.video.EncoderCoroutine
-import com.liorapps.archerytrainer.logic.video.NalRingBuffer
-import com.liorapps.archerytrainer.logic.video.SingleFrameDisplayer
+import com.liorapps.archerytrainer.ArcheryTrainerDefaults
+import com.liorapps.archerytrainer.screens.settings.SettingsRepository
 import com.liorapps.archerytrainer.navigation.NavKey
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineName
@@ -42,7 +42,7 @@ import kotlin.math.roundToInt
  * PlaybackState — the only two states visible to the UI.
  *
  * The decoder's internal PLAYING / FROZEN / CATCHING_UP state machine is an
- * implementation detail of [com.liorapps.archerytrainer.logic.video.DecoderCoroutine] and is intentionally not
+ * implementation detail of [DecoderCoroutine] and is intentionally not
  * surfaced here.
  */
 enum class PlaybackState { PAUSED, PLAYING }
@@ -59,24 +59,24 @@ enum class CameraPermissionState { CHECKING, GRANTED, DENIED }
  * • Own the shared pipeline resources ([ringBuffer], [codecConfigDataHolder], [jumpChannel]).
  * • Launch and cancel the encoder and decoder coroutine jobs at the right times.
  * • Detect delay reductions and signal the decoder via [jumpChannel].
- * • Handle surface lifecycle events from [AndroidExternalSurface].
+ * • Handle surface lifecycle events from [androidx.compose.foundation.AndroidExternalSurface].
  *
  * Does NOT
  * ─────────
- * • Touch [MediaCodec] directly — all codec operations stay inside the coroutine classes.
- * • Hold strong references to [com.liorapps.archerytrainer.logic.video.EncoderCoroutine] or [com.liorapps.archerytrainer.logic.video.DecoderCoroutine] beyond their [Job]
+ * • Touch [android.media.MediaCodec] directly — all codec operations stay inside the coroutine classes.
+ * • Hold strong references to [EncoderCoroutine] or [DecoderCoroutine] beyond their [kotlinx.coroutines.Job]
  *   handles; they are fire-and-cancel objects.
  * • Manage the decoder's internal state machine.
  *
  * Threading
  * ─────────
  * All public methods are called from the main thread (Compose / DisposableEffect).
- * The coroutines run on [Dispatchers.IO].  Cross-thread shared state is synchronized
+ * The coroutines run on [kotlinx.coroutines.Dispatchers.IO].  Cross-thread shared state is synchronized
  * exactly as specified in §11 of the architecture plan.
  *
- * @param application  Application context forwarded to [com.liorapps.archerytrainer.logic.video.EncoderCoroutine] for [CameraManager].
+ * @param application  Application context forwarded to [EncoderCoroutine] for [CameraManager].
  */
-class MainViewModel(application: Application, val settingsRepo: SettingsRepository) : AndroidViewModel(application) {
+class DelayedVideoViewModel(application: Application, val settingsRepo: SettingsRepository) : AndroidViewModel(application) {
     // ─────────────────────────────────────────────────────────────────────────
     // UI-observable Compose state  (main-thread reads + writes only)
     // ─────────────────────────────────────────────────────────────────────────
@@ -102,7 +102,7 @@ class MainViewModel(application: Application, val settingsRepo: SettingsReposito
 //    val delaySec: StateFlow<Int> = settingsRepo.delaySec
 //        .stateIn(viewModelScope, SharingStarted.Eagerly, VideoTrainerDefaults.DEFAULT_DELAY_SEC)
     val settingsFlow: StateFlow<SettingsRepository.Settings> = settingsRepo.settingsFlow
-        .stateIn(viewModelScope, SharingStarted.Eagerly, SettingsRepository.Settings())
+        .stateIn(viewModelScope, SharingStarted.Lazily, SettingsRepository.Settings())
 
     /** Non-null when a fatal pipeline error has occurred. The UI should surface this message. */
     var errorMessage: String? by mutableStateOf(null)
@@ -114,7 +114,8 @@ class MainViewModel(application: Application, val settingsRepo: SettingsReposito
     private val _isFullScreen = MutableStateFlow<Boolean>(false)
     val isFullScreen = _isFullScreen.asStateFlow()
 
-    private val _cameraPermissionStateFlow = MutableStateFlow<CameraPermissionState>(CameraPermissionState.CHECKING)
+    private val _cameraPermissionStateFlow =
+        MutableStateFlow<CameraPermissionState>(CameraPermissionState.CHECKING)
     val cameraPermissionStateFlow = _cameraPermissionStateFlow.asStateFlow()
     fun onCameraPermissionGranted() { _cameraPermissionStateFlow.update { CameraPermissionState.GRANTED } }
     fun onCameraPermissionDenied() { _cameraPermissionStateFlow.update { CameraPermissionState.DENIED } }
@@ -136,7 +137,7 @@ class MainViewModel(application: Application, val settingsRepo: SettingsReposito
      * The @Volatile annotation on the *reference* (this field) is the synchronization
      * primitive mandated by §11.  The element [codecConfigDataHolder][0] is written
      * exactly once per session by the encoder coroutine, before the decoder coroutine
-     * reads it; [com.liorapps.archerytrainer.logic.video.DecoderCoroutine.waitForCodecConfig] polls with coroutine [delay] calls,
+     * reads it; [DecoderCoroutine.waitForCodecConfig] polls with coroutine [kotlinx.coroutines.delay] calls,
      * whose suspension points provide the necessary visibility across threads.
      */
     private val cameraAndCodecConfig = CameraAndCodecConfig()
@@ -157,16 +158,16 @@ class MainViewModel(application: Application, val settingsRepo: SettingsReposito
     // ─────────────────────────────────────────────────────────────────────────
 
     /**
-     * The hardware output surface provided by [AndroidExternalSurface].
+     * The hardware output surface provided by [androidx.compose.foundation.AndroidExternalSurface].
      * Nullable because the surface may arrive before or after [startPipeline] is called,
      * and is destroyed on configuration changes (§10.1).
      */
     private var currentSurface: Surface? = null
 
-    /** Coroutine job for [com.liorapps.archerytrainer.logic.video.EncoderCoroutine.run]. Null when the pipeline is stopped. */
+    /** Coroutine job for [EncoderCoroutine.run]. Null when the pipeline is stopped. */
     private var encoderJob: Job? = null
 
-    /** Coroutine job for [com.liorapps.archerytrainer.logic.video.DecoderCoroutine.run]. Null when stopped or surface is unavailable. */
+    /** Coroutine job for [DecoderCoroutine.run]. Null when stopped or surface is unavailable. */
     private var decoderJob: Job? = null
 
     private val _videoResolution = MutableStateFlow<ArcheryTrainerDefaults.VideoResolution>(
@@ -182,7 +183,7 @@ class MainViewModel(application: Application, val settingsRepo: SettingsReposito
         .flatMapLatest { value ->
             flow {
                 val result = withContext(Dispatchers.IO) {
-                    Timber.d("#######VM singleFrameScrollbarPosition changed. position=${_singleFrameSliderPositionFlow.value}")
+                    Timber.Forest.d("#######VM singleFrameScrollbarPosition changed. position=${_singleFrameSliderPositionFlow.value}")
                     singleFrameDisplayer.displayFrameByRelativeLocation(value)
                     _singleFrameSliderPositionFlow.value
                 }
@@ -191,7 +192,7 @@ class MainViewModel(application: Application, val settingsRepo: SettingsReposito
         }
         .stateIn(
             scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5_000),
+            started = SharingStarted.Companion.WhileSubscribed(5_000),
 //            started = SharingStarted.Lazily, // Eagerly,
             initialValue = 0f
         )
@@ -215,10 +216,10 @@ class MainViewModel(application: Application, val settingsRepo: SettingsReposito
      * • PAUSED → starts the encoder + decoder pipeline.
      * • PLAYING → stops capture; the ring buffer is preserved.
      */
-    @RequiresPermission(android.Manifest.permission.CAMERA)
+    @RequiresPermission(Manifest.permission.CAMERA)
     fun onTogglePlayback() {
         viewModelScope.launch(Dispatchers.IO) {
-            Timber.d("#######VM togglePlayback() currentPlaybackState=$playbackState")
+            Timber.Forest.d("#######VM togglePlayback() currentPlaybackState=$playbackState")
             when (playbackState) {
 
                 PlaybackState.PAUSED -> {
@@ -234,14 +235,14 @@ class MainViewModel(application: Application, val settingsRepo: SettingsReposito
                     if (currentSurface != null) {
                         if (singleFrameDisplayer.initialize(currentSurface!!)) {
                             singleFrameDisplayer.seekToLastFrame()  // When we pause, we display the last captured frame
-                            Timber.d("#######VM singleFrameDisplayer _singleFrameSliderPositionFlow.value = 1.0f")
+                            Timber.Forest.d("#######VM singleFrameDisplayer _singleFrameSliderPositionFlow.value = 1.0f")
                             _singleFrameSliderPositionFlow.update { 1.0f } // When we pause we display the last frame captured
 //                            singleFrameDisplayer.displayFrameByRelativeLocation(1.0f)
                         } else {
-                            Timber.w("#######VM singleFrameDisplayer.initialize() failed")
+                            Timber.Forest.w("#######VM singleFrameDisplayer.initialize() failed")
                         }
                     } else {
-                        Timber.e("#######VM currentSurface=null")
+                        Timber.Forest.e("#######VM currentSurface=null")
                     }
                 }
             }
@@ -256,15 +257,15 @@ class MainViewModel(application: Application, val settingsRepo: SettingsReposito
     }
 
     /**
-     * Called by the Compose UI when [AndroidExternalSurface] provides a ready hardware surface.
+     * Called by the Compose UI when [androidx.compose.foundation.AndroidExternalSurface] provides a ready hardware surface.
      *
      * If the pipeline is already PLAYING (i.e. [startPipeline] was called before the surface
      * arrived) and the decoder is not yet running, the decoder job is launched immediately.
      *
-     * @param surface  The hardware surface that [com.liorapps.archerytrainer.logic.video.DecoderCoroutine] will render into.
+     * @param surface  The hardware surface that [DecoderCoroutine] will render into.
      */
     fun onSurfaceReady(surface: Surface) {
-        Timber.d("#######VM onSurfaceReady() playbackState=$playbackState")
+        Timber.Forest.d("#######VM onSurfaceReady() playbackState=$playbackState")
         currentSurface = surface
         viewModelScope.launch {
             // Sometimes the surface gets destroyed and then a new one becomes ready in quick
@@ -285,7 +286,7 @@ class MainViewModel(application: Application, val settingsRepo: SettingsReposito
                     if (singleFrameDisplayer.initialize(surface)) {
                         singleFrameDisplayer.redisplayLastDisplayedFrame()
                     } else {
-                        Timber.w("#######VM singleFrameDisplayer.setupDecoder() failed")
+                        Timber.Forest.w("#######VM singleFrameDisplayer.setupDecoder() failed")
                     }
                 }
             }
@@ -293,7 +294,7 @@ class MainViewModel(application: Application, val settingsRepo: SettingsReposito
     }
 
     /**
-     * Called by the Compose UI when [AndroidExternalSurface] destroys its surface
+     * Called by the Compose UI when [androidx.compose.foundation.AndroidExternalSurface] destroys its surface
      * (e.g. on a configuration change such as screen rotation).
      *
      * The decoder is torn down because its output surface is now invalid.
@@ -302,7 +303,7 @@ class MainViewModel(application: Application, val settingsRepo: SettingsReposito
      * via [onSurfaceReady], a fresh decoder job is launched automatically.
      */
     fun onSurfaceDestroyed() {
-        Timber.d("#######VM onSurfaceDestroyed()")
+        Timber.Forest.d("#######VM onSurfaceDestroyed()")
         decoderJob?.cancel()
         decoderJob = null
         singleFrameDisplayer.release()
@@ -324,9 +325,9 @@ class MainViewModel(application: Application, val settingsRepo: SettingsReposito
      * 4. Launches the decoder job if a surface is already available; otherwise the decoder
      *    will be launched from [onSurfaceReady] when the surface arrives.
      */
-    @RequiresPermission(android.Manifest.permission.CAMERA)
+    @RequiresPermission(Manifest.permission.CAMERA)
     private fun startPipeline() {
-        Timber.d("#######VM startPipeline()")
+        Timber.Forest.d("#######VM startPipeline()")
         // Discard any stale ring-buffer data and codec config from a prior session.
         ringBuffer.reset()
         cameraAndCodecConfig.invalidateCodecConfig()
@@ -336,7 +337,7 @@ class MainViewModel(application: Application, val settingsRepo: SettingsReposito
 
         // Launch decoder only if we already have a surface. If not, onSurfaceReady()
         // will launch it once AndroidExternalSurface delivers the surface.
-        Timber.d("#######VM startPipeline() currentSurface=$currentSurface")
+        Timber.Forest.d("#######VM startPipeline() currentSurface=$currentSurface")
         currentSurface?.let { surface -> launchDecoderJob(surface) }
     }
 
@@ -351,7 +352,7 @@ class MainViewModel(application: Application, val settingsRepo: SettingsReposito
      *   next [startPipeline] call (or in [onCleared]).
      */
     private suspend fun stopPipeline() {
-        Timber.d(Throwable(), "#######VM stopPipeline(): Current call stack trace")
+        Timber.Forest.d(Throwable(), "#######VM stopPipeline(): Current call stack trace")
         // Cancellation is cooperative: each coroutine's finally block handles its own teardown.
         encoderJob?.cancel()
         encoderJob?.join()
@@ -378,7 +379,7 @@ class MainViewModel(application: Application, val settingsRepo: SettingsReposito
     // Job launchers
     // ─────────────────────────────────────────────────────────────────────────
 
-    @RequiresPermission(android.Manifest.permission.CAMERA)
+    @RequiresPermission(Manifest.permission.CAMERA)
     private fun launchEncoderJob() {
         encoderJob = viewModelScope.launch(Dispatchers.IO + CoroutineName("ATEncoderCoroutine")) {
             try {
@@ -390,9 +391,9 @@ class MainViewModel(application: Application, val settingsRepo: SettingsReposito
 //                    onError               = ::handleEncoderError,
                 ).run()
             } catch (e: CancellationException) {
-                Timber.d(e, "#######VM encoder CancellationException")
+                Timber.Forest.d(e, "#######VM encoder CancellationException")
             } catch (e: Exception) {
-                Timber.e(e, "#######VM EncoderCoroutine failed")
+                Timber.Forest.e(e, "#######VM EncoderCoroutine failed")
 //                handleEncoderError(e)
                 encoderJob?.cancel()
                 encoderJob = null
@@ -404,7 +405,7 @@ class MainViewModel(application: Application, val settingsRepo: SettingsReposito
     private fun launchDecoderJob(surface: Surface) {
         decoderJob = viewModelScope.launch(Dispatchers.IO + CoroutineName("ATDecoderCoroutine")) {
             try {
-                Timber.d("#######VM launchDecoderJob()")
+                Timber.Forest.d("#######VM launchDecoderJob()")
                 DecoderCoroutine(
 //                    decoder               = decoder,
                     nalRingBuffer = ringBuffer,
@@ -417,9 +418,9 @@ class MainViewModel(application: Application, val settingsRepo: SettingsReposito
             } catch (e: CancellationException) {
                 // No need to stop and release the decoder here because DecoderCoroutine.run()
                 // has a finally block that takes care of that before we get here
-                Timber.d(e, "#######VM decoder CancellationException")
+                Timber.Forest.d(e, "#######VM decoder CancellationException")
             } catch (e: Exception) {
-                Timber.e(e, "#######VM DecoderCoroutine failed")
+                Timber.Forest.e(e, "#######VM DecoderCoroutine failed")
 //                handleDecoderError(e)
                 decoderJob?.cancel()
                 decoderJob = null
@@ -477,7 +478,7 @@ class MainViewModel(application: Application, val settingsRepo: SettingsReposito
      */
     override fun onCleared() {
         super.onCleared()
-        Timber.d("#######VM onCleared()")
+        Timber.Forest.d("#######VM onCleared()")
         singleFrameDisplayer.release()
         viewModelScope.launch(Dispatchers.IO) {
             stopPipeline()
@@ -519,7 +520,7 @@ class MainViewModel(application: Application, val settingsRepo: SettingsReposito
     }
 
     fun onSetSingleFrameLocation(value: Float) {
-        Timber.d("#######VM onSetSingleFrameLocation() value=$value")
+        Timber.Forest.d("#######VM onSetSingleFrameLocation() value=$value")
         _singleFrameSliderPositionFlow.update { value }
     }
     fun onSingleFrameForward() {
@@ -535,33 +536,16 @@ class MainViewModel(application: Application, val settingsRepo: SettingsReposito
         }
     }
 
-    fun navigateTo(key: NavKey) {
-        backStack.add(key)
-    }
-
-    fun navigateBack() {
-        when {
-            _isFullScreen.value -> setIsFullScreen(false)
-            backStack.size > 1  -> backStack.removeAt(backStack.lastIndex)
-        }
-    }
-
-    fun updateSettings(newSettings: SettingsRepository.Settings) {
-        viewModelScope.launch {
-            settingsRepo.updateSettings(newSettings)
-        }
-    }
-
     /** Called from the UI (via a launchedEffect) every time the screen rotation changes */
     fun onScreenRotationUpdate(newScreenRotationDegrees: Int) {
-        Timber.d("#######VM onScreenRotationUpdate() orientation=$newScreenRotationDegrees")
+        Timber.Forest.d("#######VM onScreenRotationUpdate() orientation=$newScreenRotationDegrees")
         cameraAndCodecConfig.screenOrientation = newScreenRotationDegrees
     }
 
     var xWhenTouched: Float = 0f
     var frameIndexWhenTouched: Int = -1
     fun onVideoSurfaceTouched(x: Float) {
-        Timber.d("#######VM onVideoSurfaceTouched() x=$x")
+        Timber.Forest.d("#######VM onVideoSurfaceTouched() x=$x")
         xWhenTouched = x
         frameIndexWhenTouched = singleFrameDisplayer.currentFrameIndex
     }
@@ -572,12 +556,12 @@ class MainViewModel(application: Application, val settingsRepo: SettingsReposito
     fun onHorizontalDragOverVideo(currentX: Float) {
         if (ringBuffer.count == 0) return
         if (playbackState != PlaybackState.PAUSED) {
-            Timber.e("#######VM onHorizontalDragOverVideo(): but not PAUSED")
+            Timber.Forest.e("#######VM onHorizontalDragOverVideo(): but not PAUSED")
             return
         }
 
         val deltaX = currentX - xWhenTouched
-        Timber.d("#######VM onHorizontalDragOverVideo() deltaX=${deltaX}")
+        Timber.Forest.d("#######VM onHorizontalDragOverVideo() deltaX=${deltaX}")
         if (abs(deltaX) >= horizontalDragSensitivity) {
             val frameIndexDelta = (deltaX / horizontalDragSensitivity).roundToInt()
             val targetFrameIndex = frameIndexWhenTouched + frameIndexDelta
@@ -585,101 +569,19 @@ class MainViewModel(application: Application, val settingsRepo: SettingsReposito
                 targetFrameIndex.toFloat() / ringBuffer.count.toFloat()
             }
         }
-
-//        val nTotalFrames = ringBuffer.count
-//        val currentFrameIndex = singleFrameDisplayer.currentFrameIndex
-//        val targetFrameIndex = if (deltaX < 0) currentFrameIndex - 1  else  currentFrameIndex + 1
-//        _singleFrameSliderPosition.value = targetFrameIndex.toFloat() / nTotalFrames.toFloat()
-//        Timber.d("#######VM onHorizontalDragOverVideo(): dX=$deltaX nTotalFrames=$nTotalFrames currentFrame=$currentFrameIndex targetFrameIndex=$targetFrameIndex _singleFrameSliderPosition.value=${_singleFrameSliderPosition.value}")
-
-//        if (horizontalDragJob?.isActive == true) {
-//            horizontalDragJob?.cancel()
-//            // No need to wait for the cancel to complete (e.g. with .join()), because the code
-//            // of displayPreviousFrame() and displayNextFrame() is protected with a Lock
-//        }
-//        horizontalDragJob = viewModelScope.launch(Dispatchers.IO) {
-//            if (deltaX < 0) {
-//                singleFrameDisplayer.displayPreviousFrame()
-//            } else {
-//                singleFrameDisplayer.displayNextFrame()
-//            }
-//        }
     }
 
-    //todo lh: 2brm
-    // Called from the UI when the camera permission result is received
-//    fun onPermissionResult(isGranted: Boolean) {
-//        _isCameraPermissionGranted.value = isGranted
-//        if (isGranted) {
-//            Log.i("MainViewModel", "Camera permission granted")
-//        } else {
-//            Log.i("MainViewModel", "Camera permission denied")
-//        }
-//    }
-
-    /* todo lh: 2brm  *********************************************************************************
-    Step 5: Usage Example
-    Here is how the ViewModel wires DecoderCoroutine together with the already-implemented
-    components. This is the minimal integration needed for the full pipeline.
-
-    @RequiresPermission(android.Manifest.permission.CAMERA)
-    fun startPipeline(outputSurface: Surface) {
-        encoderJob = viewModelScope.launch(Dispatchers.IO) {
-            EncoderCoroutine(
-                context        = application,
-                ringBuffer     = ringBuffer,
-                codecConfigDataHolder = codecConfigDataHolder,
-                onError        = { e -> /* emit to UI StateFlow */ },
-            ).run()
-        }
-
-        decoderJob = viewModelScope.launch(Dispatchers.IO) {
-            DecoderCoroutine(
-                ringBuffer            = ringBuffer,
-                codecConfigDataHolder = codecConfigDataHolder,
-                outputSurface         = outputSurface,
-                delaySecProvider      = { delaySec },   // lambda captures @Volatile-backed state
-                jumpChannel           = jumpChannel,
-                onError               = { e -> /* emit to UI StateFlow */ },
-            ).run()
-        }
-    }
-     ***********************************************************************************/
-
-
-    /**********************************************************************************
-    And in the Compose UI:
-    ***********************************************************************************/
-    /*
-    @Composable
-    fun TimeShiftScreen(viewModel: TimeShiftViewModel) {
-        Column {
-            AndroidExternalSurface(modifier = Modifier.weight(1f)) {
-                onSurface { surface, _, _ ->
-                    viewModel.onSurfaceReady(surface)
-                    surface.onDestroyed { viewModel.onSurfaceDestroyed() }
-                }
+    class Factory(
+        private val application: Application,
+        private val repo: SettingsRepository
+    ) : ViewModelProvider.Factory {
+        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+            if (modelClass.isAssignableFrom(DelayedVideoViewModel::class.java)) {
+                @Suppress("UNCHECKED_CAST")
+                return DelayedVideoViewModel(application, repo) as T
             }
-            Slider(
-                value       = viewModel.delaySec.toFloat(),
-                onValueChange = { viewModel.onDelayChanged(it.roundToInt()) },
-                valueRange  = TimeShiftConfig.MIN_DELAY_SEC.toFloat()..
-                        TimeShiftConfig.MAX_DELAY_SEC.toFloat(),
-            )
+            throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
         }
     }
-    */
 }
 
-class MainViewModelFactory(
-    private val application: Application,
-    private val repo: SettingsRepository
-) : ViewModelProvider.Factory {
-    override fun <T : ViewModel> create(modelClass: Class<T>): T {
-        if (modelClass.isAssignableFrom(MainViewModel::class.java)) {
-            @Suppress("UNCHECKED_CAST")
-            return MainViewModel(application, repo) as T
-        }
-        throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
-    }
-}

@@ -1,7 +1,15 @@
-package com.liorapps.archerytrainer.ui.screens
+package com.liorapps.archerytrainer.screens.settings
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
@@ -9,8 +17,26 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
@@ -19,16 +45,15 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.liorapps.archerytrainer.MainViewModel
-import com.liorapps.archerytrainer.SettingsRepository
 import com.liorapps.archerytrainer.ArcheryTrainerDefaults
+import com.liorapps.archerytrainer.screens.video.logic.DelayedVideoViewModel
 import com.liorapps.archerytrainer.ui.theme.ArcheryTrainerTheme
 import kotlin.math.roundToInt
-
+import kotlin.text.format
 
 @Composable
 fun SettingsScreen(
-    viewModel: MainViewModel = viewModel(),
+    viewModel: SettingsViewModel,
     onNavigateBack: () -> Unit,
     onOpenDrawer: () -> Unit,
 ) {
@@ -40,10 +65,6 @@ fun SettingsScreen(
         onNavigateBack = onNavigateBack,
     )
 }
-
-// ---------------------------------------------------------------------------
-// Pure-Compose content (easy to preview / test independently)
-// ---------------------------------------------------------------------------
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -68,27 +89,10 @@ fun SettingsScreenContent(
             )
         }
     ) { innerPadding ->
-        val modifier = modifier.then(Modifier.padding(innerPadding))
+        val modifier = modifier.then(Modifier.Companion.padding(innerPadding))
         SettingsSection(settings, onSettingsChange, modifier)
     }
 }
-
-// ---------------------------------------------------------------------------
-// Public entry point — collects state from the ViewModel
-// ---------------------------------------------------------------------------
-
-//@Composable
-//fun SettingsScreen(viewModel: SettingsViewModel) {
-//    val settings by viewModel.settings.collectAsStateWithLifecycle()
-//    SettingsSection(
-//        settings = settings,
-//        onSettingsChange = viewModel::updateSettings,
-//    )
-//}
-
-// ---------------------------------------------------------------------------
-// Top-level composable (as specified)
-// ---------------------------------------------------------------------------
 
 @Composable
 private fun SettingsSection(
@@ -104,7 +108,7 @@ private fun SettingsSection(
         color = MaterialTheme.colorScheme.background,
     ) {
         Column(
-            modifier = Modifier
+            modifier = Modifier.Companion
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState()),
         ) {
@@ -199,10 +203,6 @@ private fun SettingsSection(
     }
 }
 
-// ---------------------------------------------------------------------------
-// Shared UI building blocks
-// ---------------------------------------------------------------------------
-
 private enum class DialogType { DELAY_SEC, VIDEO_BITRATE, VIDEO_RESOLUTION, PARAM_C, PARAM_D }
 
 @Composable
@@ -211,7 +211,7 @@ private fun SettingsSectionHeader(title: String) {
         text = title,
         style = MaterialTheme.typography.labelMedium,
         color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier
+        modifier = Modifier.Companion
             .fillMaxWidth()
             .padding(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 4.dp),
     )
@@ -230,15 +230,15 @@ private fun SettingsItem(
             .fillMaxWidth()
             .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
+        verticalAlignment = Alignment.Companion.CenterVertically,
     ) {
-        Column(modifier = Modifier.weight(1f)) {
+        Column(modifier = Modifier.Companion.weight(1f)) {
             Text(
                 text = title,
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurface,
             )
-            Spacer(modifier = Modifier.height(2.dp))
+            Spacer(modifier = Modifier.Companion.height(2.dp))
             Text(
                 text = value,
                 style = MaterialTheme.typography.bodyMedium,
@@ -269,11 +269,11 @@ private fun SimpleIntDialog(
                 value = text,
                 onValueChange = { text = it },
                 label = { Text(label) },
-                isError = ! isLegalValue(text.toIntOrNull()),
+                isError = !isLegalValue(text.toIntOrNull()),
                 supportingText = {
                     if (isError) Text(illegalValueMsg)
                 },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Companion.Number),
                 singleLine = true,
             )
         },
@@ -303,24 +303,24 @@ private fun SingleSelectionStringDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = {
-            Column(modifier = Modifier.selectableGroup()) {
+            Column(modifier = Modifier.Companion.selectableGroup()) {
                 options.forEach { option ->
                     Row(
-                        modifier = Modifier
+                        modifier = Modifier.Companion
                             .fillMaxWidth()
                             .selectable(
                                 selected = (option == selected),
                                 onClick = { selected = option },
-                                role = Role.RadioButton,
+                                role = Role.Companion.RadioButton,
                             )
                             .padding(vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
+                        verticalAlignment = Alignment.Companion.CenterVertically,
                     ) {
                         RadioButton(
                             selected = (option == selected),
                             onClick = null, // handled by Row
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Spacer(modifier = Modifier.Companion.width(8.dp))
                         Text(
                             text = option,
                             style = MaterialTheme.typography.bodyLarge,
@@ -393,20 +393,21 @@ private fun VideoResolutionDialog(
         ),
         onConfirm = { newResolution ->
             when (newResolution) {
-                ArcheryTrainerDefaults.VideoResolution.SD_640x480.toString() -> onConfirm(ArcheryTrainerDefaults.VideoResolution.SD_640x480())
-                ArcheryTrainerDefaults.VideoResolution.HD_1280x720.toString() -> onConfirm(ArcheryTrainerDefaults.VideoResolution.HD_1280x720())
-                ArcheryTrainerDefaults.VideoResolution.FHD_1920x1080.toString() -> onConfirm(ArcheryTrainerDefaults.VideoResolution.FHD_1920x1080())
-                ArcheryTrainerDefaults.VideoResolution.QHD_2560x1440.toString() -> onConfirm(ArcheryTrainerDefaults.VideoResolution.QHD_2560x1440())
-                ArcheryTrainerDefaults.VideoResolution.UHD_3840x2160.toString() -> onConfirm(ArcheryTrainerDefaults.VideoResolution.UHD_3840x2160())
+                ArcheryTrainerDefaults.VideoResolution.SD_640x480.toString() -> onConfirm(
+                    ArcheryTrainerDefaults.VideoResolution.SD_640x480())
+                ArcheryTrainerDefaults.VideoResolution.HD_1280x720.toString() -> onConfirm(
+                    ArcheryTrainerDefaults.VideoResolution.HD_1280x720())
+                ArcheryTrainerDefaults.VideoResolution.FHD_1920x1080.toString() -> onConfirm(
+                    ArcheryTrainerDefaults.VideoResolution.FHD_1920x1080())
+                ArcheryTrainerDefaults.VideoResolution.QHD_2560x1440.toString() -> onConfirm(
+                    ArcheryTrainerDefaults.VideoResolution.QHD_2560x1440())
+                ArcheryTrainerDefaults.VideoResolution.UHD_3840x2160.toString() -> onConfirm(
+                    ArcheryTrainerDefaults.VideoResolution.UHD_3840x2160())
             }
         },
         onDismiss = onDismiss,
     )
 }
-
-
-
-
 
 
 @Composable
@@ -428,9 +429,9 @@ private fun DelaySecDialog2brm(
                 label = { Text("Video delay in seconds") },
                 isError = isError,
                 supportingText = {
-                    if (isError) Text("Please enter a number between 0 and $ArcheryTrainerDefaults.MAX_DELAY_SEC")
+                    if (isError) Text("Please enter a number between 0 and ${ArcheryTrainerDefaults}.MAX_DELAY_SEC")
                 },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Companion.Number),
                 singleLine = true,
             )
         },
@@ -446,10 +447,6 @@ private fun DelaySecDialog2brm(
     )
 }
 
-// ---------------------------------------------------------------------------
-// Dialog: paramB — single-choice from predefined list
-// ---------------------------------------------------------------------------
-
 @Composable
 private fun ParamBDialog(
     current: Int,
@@ -463,24 +460,24 @@ private fun ParamBDialog(
         onDismissRequest = onDismiss,
         title = { Text("Parameter B") },
         text = {
-            Column(modifier = Modifier.selectableGroup()) {
+            Column(modifier = Modifier.Companion.selectableGroup()) {
                 options.forEach { option ->
                     Row(
-                        modifier = Modifier
+                        modifier = Modifier.Companion
                             .fillMaxWidth()
                             .selectable(
                                 selected = (option == selected),
                                 onClick = { selected = option },
-                                role = Role.RadioButton,
+                                role = Role.Companion.RadioButton,
                             )
                             .padding(vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
+                        verticalAlignment = Alignment.Companion.CenterVertically,
                     ) {
                         RadioButton(
                             selected = (option == selected),
                             onClick = null, // handled by Row
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Spacer(modifier = Modifier.Companion.width(8.dp))
                         Text(
                             text = option.toString(),
                             style = MaterialTheme.typography.bodyLarge,
@@ -497,10 +494,6 @@ private fun ParamBDialog(
         },
     )
 }
-
-// ---------------------------------------------------------------------------
-// Dialog: paramC — free string input
-// ---------------------------------------------------------------------------
 
 @Composable
 private fun ParamCDialog(
@@ -530,10 +523,6 @@ private fun ParamCDialog(
     )
 }
 
-// ---------------------------------------------------------------------------
-// Dialog: paramD — slider in [0, 1]
-// ---------------------------------------------------------------------------
-
 @Composable
 private fun ParamDDialog(
     current: Float,
@@ -548,12 +537,12 @@ private fun ParamDDialog(
         onDismissRequest = onDismiss,
         title = { Text("Parameter D") },
         text = {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Column(horizontalAlignment = Alignment.Companion.CenterHorizontally) {
                 Text(
                     text = displayValue,
                     style = MaterialTheme.typography.headlineSmall,
                     color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(bottom = 8.dp),
+                    modifier = Modifier.Companion.padding(bottom = 8.dp),
                 )
                 Slider(
                     value = sliderValue,
@@ -562,7 +551,7 @@ private fun ParamDDialog(
                     steps = 98, // 100 intervals → 99 intermediate stops (0.01 each)
                 )
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.Companion.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
                     Text("0.00", style = MaterialTheme.typography.labelSmall)
@@ -592,6 +581,7 @@ data class MySettings(
         val PARAM_B_OPTIONS = listOf(10, 20, 50, 100, 200)
     }
 }
+
 @Preview(showBackground = true)
 @Composable
 fun SettingsScreenContentPreview() {
@@ -610,363 +600,3 @@ fun SettingsScreenContentPreview() {
         )
     }
 }
-//@Preview(showBackground = true)
-//@Composable
-//fun SettingsScreenPreview() {
-//    VideoTrainerTheme {
-//        SettingsScreenContent(
-//            settings = MySettings(paramA = 3, paramB = 7, paramC = "lama", paramD = 0.314f),
-//            onSettingsChange = {},
-//            onNavigateBack = {},
-//        )
-//    }
-//}
-
-
-
-
-
-
-
-
-
-
-
-
-//@Composable
-//private fun SettingsSection(
-//    settings: MySettings,
-//    onSettingsChange: (MySettings) -> Unit,
-//    modifier: Modifier = Modifier,
-//) {
-//    // ---- local draft state ------------------------------------------------
-//    // We keep a mutable local copy so the UI feels instant while the
-//    // ViewModel / repository persists the value asynchronously.
-//
-//    var paramAText by remember(settings.paramA) {
-//        mutableStateOf(settings.paramA.toString())
-//    }
-//    var paramB by remember(settings.paramB) {
-//        mutableIntStateOf(settings.paramB)
-//    }
-//    var paramCText by remember(settings.paramC) {
-//        mutableStateOf(settings.paramC)
-//    }
-//    var paramD by remember(settings.paramD) {
-//        mutableFloatStateOf(settings.paramD)
-//    }
-//
-//    // Helper: push current draft back to the ViewModel
-//    fun commit(
-//        newParamA: Int = paramAText.toIntOrNull() ?: settings.paramA,
-//        newParamB: Int = paramB,
-//        newParamC: String = paramCText,
-//        newParamD: Float = paramD,
-//    ) {
-//        onSettingsChange(
-//            settings.copy(
-//                paramA = newParamA,
-//                paramB = newParamB,
-//                paramC = newParamC,
-//                paramD = newParamD,
-//            )
-//        )
-//    }
-//
-//    // ---- layout -----------------------------------------------------------
-//    Column(
-//        modifier = modifier
-//            .fillMaxSize()
-//            .verticalScroll(rememberScrollState())
-//            .padding(vertical = 16.dp),
-//        verticalArrangement = Arrangement.spacedBy(8.dp),
-//    ) {
-//
-//        // ── Section 1 ──────────────────────────────────────────────────────
-//        SettingsSectionHeader(title = "Section-1")
-//
-//        // paramA – free integer input
-//        SettingsItemCard {
-//            OutlinedTextField(
-//                value = paramAText,
-//                onValueChange = { raw ->
-//                    // Accept only digit / minus characters while typing
-//                    if (raw.isEmpty() || raw == "-" || raw.toIntOrNull() != null) {
-//                        paramAText = raw
-//                    }
-//                },
-//                label = { Text("Param A") },
-//                supportingText = { Text("Any integer value") },
-//                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-//                singleLine = true,
-//                modifier = Modifier.fillMaxWidth(),
-//            )
-//
-//            Spacer(Modifier.height(4.dp))
-//
-//            Button(
-//                onClick = { commit(newParamA = paramAText.toIntOrNull() ?: settings.paramA) },
-//                modifier = Modifier.align(Alignment.End),
-//            ) {
-//                Text("Apply")
-//            }
-//        }
-//
-//        // paramB – picker from pre-defined set
-//        SettingsItemCard {
-//            Text(
-//                text = "Param B",
-//                style = MaterialTheme.typography.labelLarge,
-//            )
-//            Text(
-//                text = "Select a value from the list",
-//                style = MaterialTheme.typography.bodySmall,
-//                color = MaterialTheme.colorScheme.onSurfaceVariant,
-//            )
-//            Spacer(Modifier.height(8.dp))
-//            ParamBPicker(
-//                options = MySettings.PARAM_B_OPTIONS,
-//                selected = paramB,
-//                onSelected = { newValue ->
-//                    paramB = newValue
-//                    commit(newParamB = newValue)
-//                },
-//            )
-//        }
-//
-//        // ── Section 2 ──────────────────────────────────────────────────────
-//        SettingsSectionHeader(title = "Section-2")
-//
-//        // paramC – free string input
-//        SettingsItemCard {
-//            OutlinedTextField(
-//                value = paramCText,
-//                onValueChange = { paramCText = it },
-//                label = { Text("Param C") },
-//                supportingText = { Text("Any text value") },
-//                singleLine = true,
-//                modifier = Modifier.fillMaxWidth(),
-//            )
-//
-//            Spacer(Modifier.height(4.dp))
-//
-//            Button(
-//                onClick = { commit(newParamC = paramCText) },
-//                modifier = Modifier.align(Alignment.End),
-//            ) {
-//                Text("Apply")
-//            }
-//        }
-//
-//        // paramD – slider 0..1
-//        SettingsItemCard {
-//            Row(
-//                modifier = Modifier.fillMaxWidth(),
-//                horizontalArrangement = Arrangement.SpaceBetween,
-//                verticalAlignment = Alignment.CenterVertically,
-//            ) {
-//                Column {
-//                    Text(
-//                        text = "Param D",
-//                        style = MaterialTheme.typography.labelLarge,
-//                    )
-//                    Text(
-//                        text = "Value between 0 and 1",
-//                        style = MaterialTheme.typography.bodySmall,
-//                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-//                    )
-//                }
-//                // Show current value rounded to 2 decimal places
-//                Text(
-//                    text = "%.2f".format(paramD),
-//                    style = MaterialTheme.typography.bodyLarge,
-//                    color = MaterialTheme.colorScheme.primary,
-//                )
-//            }
-//            Spacer(Modifier.height(8.dp))
-//            Slider(
-//                value = paramD,
-//                onValueChange = { paramD = it },
-//                onValueChangeFinished = { commit(newParamD = paramD) },
-//                valueRange = 0f..1f,
-//                modifier = Modifier.fillMaxWidth(),
-//            )
-//            Row(
-//                modifier = Modifier.fillMaxWidth(),
-//                horizontalArrangement = Arrangement.SpaceBetween,
-//            ) {
-//                Text(
-//                    text = "0.00",
-//                    style = MaterialTheme.typography.labelSmall,
-//                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-//                )
-//                Text(
-//                    text = "1.00",
-//                    style = MaterialTheme.typography.labelSmall,
-//                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-//                )
-//            }
-//        }
-//
-//        Spacer(Modifier.height(16.dp))
-//    }
-//}
-//
-//// ---------------------------------------------------------------------------
-//// Reusable sub-components
-//// ---------------------------------------------------------------------------
-//
-//@Composable
-//private fun SettingsSectionHeader(
-//    title: String,
-//    modifier: Modifier = Modifier,
-//) {
-//    Column(modifier = modifier.padding(horizontal = 16.dp)) {
-//        Text(
-//            text = title,
-//            style = MaterialTheme.typography.titleSmall,
-//            color = MaterialTheme.colorScheme.primary,
-//        )
-//        HorizontalDivider(
-//            modifier = Modifier.padding(top = 4.dp),
-//            color = MaterialTheme.colorScheme.outlineVariant,
-//        )
-//    }
-//}
-//
-///**
-// * A card-like container for a single settings row / group.
-// */
-//@Composable
-//private fun SettingsItemCard(
-//    modifier: Modifier = Modifier,
-//    content: @Composable ColumnScope.() -> Unit,
-//) {
-//    Card(
-//        modifier = modifier
-//            .fillMaxWidth()
-//            .padding(horizontal = 16.dp),
-//        colors = CardDefaults.cardColors(
-//            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-//        ),
-//    ) {
-//        Column(
-//            modifier = Modifier.padding(16.dp),
-//            content = content,
-//        )
-//    }
-//}
-//
-///**
-// * Renders [options] as a row of Filter-chip-style buttons.
-// * The currently [selected] value is highlighted.
-// */
-//@Composable
-//private fun ParamBPicker(
-//    options: List<Int>,
-//    selected: Int,
-//    onSelected: (Int) -> Unit,
-//    modifier: Modifier = Modifier,
-//) {
-//    // Wrap in a horizontal scroll in case many options don't fit in one line
-//    val scrollState = rememberScrollState()
-//    Row(
-//        modifier = modifier
-//            .fillMaxWidth()
-//            .horizontalScroll(scrollState),
-//        horizontalArrangement = Arrangement.spacedBy(8.dp),
-//    ) {
-//        options.forEach { option ->
-//            FilterChip(
-//                selected = (option == selected),
-//                onClick = { onSelected(option) },
-//                label = { Text(option.toString()) },
-//            )
-//        }
-//    }
-//}
-//
-//// ---------------------------------------------------------------------------
-//// ViewModel stub – replace with your real implementation
-//// ---------------------------------------------------------------------------
-//
-///**
-// * Stub interface. Replace with your actual ViewModel class that extends
-// * [androidx.lifecycle.ViewModel] and injects your repository.
-// */
-//interface SettingsViewModel {
-//    val settings: kotlinx.coroutines.flow.StateFlow<MySettings>
-//    fun updateSettings(settings: MySettings)
-//}
-//
-//@Preview(showBackground = true)
-//@Composable
-//fun SettingsScreenPreview() {
-//    VideoTrainerTheme {
-//        SettingsScreenContent(
-//            settings = MySettings(paramA = 3, paramB = 7, paramC = "lama", paramD = 0.314f),
-//            onSettingsChange = {},
-//            onNavigateBack = {},
-//        )
-//    }
-//}
-
-
-
-
-//import androidx.compose.foundation.layout.*
-//import androidx.compose.material.icons.Icons
-//import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-//import androidx.compose.material3.*
-//import androidx.compose.runtime.Composable
-//import androidx.compose.ui.Alignment
-//import androidx.compose.ui.Modifier
-//import androidx.compose.ui.tooling.preview.Preview
-//import androidx.compose.ui.unit.dp
-//import com.liorapps.videotrainer.ui.theme.VideoTrainerTheme
-//
-//@OptIn(ExperimentalMaterial3Api::class)
-//@Composable
-//fun SettingsScreen(
-//    onNavigateBack: () -> Unit
-//) {
-//    Scaffold(
-//        topBar = {
-//            TopAppBar(
-//                title = { Text("Settings") },
-//                navigationIcon = {
-//                    IconButton(onClick = onNavigateBack) {
-//                        Icon(
-//                            imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-//                            contentDescription = "Back"
-//                        )
-//                    }
-//                }
-//            )
-//        }
-//    ) { innerPadding ->
-//        Column(
-//            modifier = Modifier
-//                .fillMaxSize()
-//                .padding(innerPadding)
-//                .padding(16.dp),
-//            verticalArrangement = Arrangement.Top,
-//            horizontalAlignment = Alignment.Start
-//        ) {
-//            Text(
-//                text = "Video Trainer Settings",
-//                style = MaterialTheme.typography.headlineSmall
-//            )
-//            Spacer(modifier = Modifier.height(16.dp))
-//            Text("Dummy settings placeholder...")
-//        }
-//    }
-//}
-
-//@Preview(showBackground = true)
-//@Composable
-//fun SettingsScreenPreview() {
-//    VideoTrainerTheme {
-//        SettingsScreen(onNavigateBack = {})
-//    }
-//}

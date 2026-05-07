@@ -1,4 +1,4 @@
-package com.liorapps.archerytrainer.ui.screens.video
+package com.liorapps.archerytrainer.screens.video.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -19,14 +19,14 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
-import com.liorapps.archerytrainer.CameraPermissionState
-import com.liorapps.archerytrainer.MainViewModel
-import com.liorapps.archerytrainer.PlaybackState
+import com.liorapps.archerytrainer.screens.video.logic.CameraPermissionState
+import com.liorapps.archerytrainer.screens.video.logic.DelayedVideoViewModel
+import com.liorapps.archerytrainer.screens.video.logic.PlaybackState
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalPermissionsApi::class)
 @Composable
 fun DelayedVideoShellScreen(
-    viewModel: MainViewModel = viewModel(),
+    viewModel: DelayedVideoViewModel,
     onNavigateToSettings: () -> Unit,
     onOpenDrawer: () -> Unit,
 ) {
@@ -48,7 +48,7 @@ fun DelayedVideoShellScreen(
 
 @Composable
 fun DelayedVideoScreen(
-    viewModel: MainViewModel,
+    viewModel: DelayedVideoViewModel,
     onOpenDrawer: () -> Unit,
     onNavigateToSettings: () -> Unit
 ) {
@@ -63,7 +63,7 @@ fun DelayedVideoScreen(
 
     // When in full-screen we want the back button to simply exit full-screen
     BackHandler(enabled = isFullScreen) {
-        viewModel.navigateBack()
+        viewModel.setIsFullScreen(false)
     }
 
     // A launchedEffect that updates the viewModel about the current screen orientation

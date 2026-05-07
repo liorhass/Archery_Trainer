@@ -13,8 +13,8 @@ data class ShootingSetWithSession(
     val score: Int,
 
     // ── Parent-session fields ──────────────────────────────────────────────────
-    val sessionDateTimeUtc: Long,
-    val sessionComment: String
+    val shootingSessionDateTimeUtc: Long,
+    val shootingSessionComment: String
 )
 
 /**

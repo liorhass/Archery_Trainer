@@ -1,4 +1,4 @@
-package com.liorapps.archerytrainer.logic.video
+package com.liorapps.archerytrainer.screens.video.logic
 
 import android.media.MediaCodec
 import android.media.MediaFormat

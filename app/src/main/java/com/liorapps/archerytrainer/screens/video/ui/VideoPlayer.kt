@@ -1,4 +1,4 @@
-package com.liorapps.archerytrainer.ui.screens.video
+package com.liorapps.archerytrainer.screens.video.ui
 
 import android.annotation.SuppressLint
 import android.view.MotionEvent

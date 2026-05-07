@@ -2,6 +2,7 @@ package com.liorapps.archerytrainer
 
 import android.app.Application
 import androidx.datastore.preferences.preferencesDataStore
+import com.liorapps.archerytrainer.screens.settings.SettingsRepository
 import timber.log.Timber
 import kotlin.getValue
 
