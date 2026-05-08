@@ -16,7 +16,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.liorapps.archerytrainer.ArcheryTrainerDefaults
 import com.liorapps.archerytrainer.screens.settings.SettingsRepository
-import com.liorapps.archerytrainer.navigation.NavKey
+import com.liorapps.archerytrainer.navigation.ATNavKey
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.Dispatchers
@@ -82,7 +82,7 @@ class DelayedVideoViewModel(application: Application, val settingsRepo: Settings
     // ─────────────────────────────────────────────────────────────────────────
     // TODO LH: convert all of these to StateFlow (like cameraPermissionState)
 
-    val backStack = mutableStateListOf<NavKey>(NavKey.DelayedVideo)
+    val backStack = mutableStateListOf<ATNavKey>(ATNavKey.DelayedVideo)
 
     // Camera Selector State
     var selectedCamera by mutableStateOf(CameraSelector.DEFAULT_BACK_CAMERA)

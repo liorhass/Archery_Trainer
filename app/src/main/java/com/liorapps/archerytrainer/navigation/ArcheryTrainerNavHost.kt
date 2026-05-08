@@ -47,10 +47,10 @@ fun ArcheryTrainerNavHost(navigationViewModel: NavigationViewModel) {
     val scope        = rememberCoroutineScope()
     val app          = LocalContext.current.applicationContext as ArcheryTrainerApplication
 
+//    val savedStateNavEntryDecorator = rememberSavedStateNavEntryDecorator<NavKey>()
     // Navigation 3 requires these decorators to provide Lifecycle, SavedState, and ViewModel support
-//    val sceneDecorator = rememberSceneSetupNavEntryDecorator()
-    val savedStateDecorator = rememberSaveableStateHolderNavEntryDecorator<NavKey>()
-    val viewModelStoreDecorator = rememberViewModelStoreNavEntryDecorator<NavKey>()
+    val saveableStateHolderNavEntryDecorator = rememberSaveableStateHolderNavEntryDecorator<ATNavKey>()
+    val viewModelStoreDecorator = rememberViewModelStoreNavEntryDecorator<ATNavKey>()
 
     ModalNavigationDrawer(
         drawerState = drawerState,
@@ -72,21 +72,21 @@ fun ArcheryTrainerNavHost(navigationViewModel: NavigationViewModel) {
             NavDisplay(
                 backStack = navigationViewModel.backStack,
                 onBack = { navigationViewModel.navigateBack() },
-                entryDecorators  = listOf(savedStateDecorator, viewModelStoreDecorator),
-                entryProvider = { key: NavKey ->
+                entryDecorators  = listOf(saveableStateHolderNavEntryDecorator, viewModelStoreDecorator),
+                entryProvider = { key: ATNavKey ->
                     when (key) {
-                        is NavKey.DelayedVideo -> NavEntry(key) {
+                        is ATNavKey.DelayedVideo -> NavEntry(key) {
                             val viewModel: DelayedVideoViewModel = viewModel(
                                 factory = DelayedVideoViewModel.Factory(app, app.settingsRepository)
                             )
                             DelayedVideoShellScreen(
                                 viewModel = viewModel,
-                                onNavigateToSettings = { navigationViewModel.navigateTo(NavKey.Settings) },
+                                onNavigateToSettings = { navigationViewModel.navigateTo(ATNavKey.Settings) },
                                 onOpenDrawer = { scope.launch { drawerState.open() } }
                             )
                         }
 
-                        is NavKey.Settings -> NavEntry(key) {
+                        is ATNavKey.Settings -> NavEntry(key) {
                             val viewModel: SettingsViewModel = viewModel(
                                 factory = SettingsViewModel.Factory(app.settingsRepository)
                             )
@@ -133,8 +133,8 @@ fun ArcheryTrainerNavHost(navigationViewModel: NavigationViewModel) {
 fun AppDrawerContent(
 //    currentRoute: String,
 //    onItemClick: (String) -> Unit
-    currentRoute: NavKey?,
-    onNavigate: (NavKey) -> Unit,
+    currentRoute: ATNavKey?,
+    onNavigate: (ATNavKey) -> Unit,
 ) {
     ModalDrawerSheet {
         Text(
@@ -149,14 +149,14 @@ fun AppDrawerContent(
         StandardDrawerItem(
             label = "Delayed Video",
             icon = Icons.Default.VideoCameraFront,
-            selected = currentRoute == NavKey.DelayedVideo,
-            onClick = { onNavigate(NavKey.DelayedVideo) }
+            selected = currentRoute == ATNavKey.DelayedVideo,
+            onClick = { onNavigate(ATNavKey.DelayedVideo) }
         )
         StandardDrawerItem(
             label = "Settings",
             icon = Icons.Default.Settings,
-            selected = currentRoute == NavKey.Settings,
-            onClick = { onNavigate(NavKey.Settings) }
+            selected = currentRoute == ATNavKey.Settings,
+            onClick = { onNavigate(ATNavKey.Settings) }
         )
 
         StandardDrawerItem(

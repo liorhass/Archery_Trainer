@@ -5,9 +5,9 @@ import androidx.lifecycle.ViewModel
 
 class NavigationViewModel : ViewModel() {
 
-    val backStack = mutableStateListOf<NavKey>(NavKey.DelayedVideo)
+    val backStack = mutableStateListOf<ATNavKey>(ATNavKey.DelayedVideo)
 
-    fun navigateTo(key: NavKey) {
+    fun navigateTo(key: ATNavKey) {
         backStack.add(key)
     }
 
