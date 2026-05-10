@@ -24,7 +24,8 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
 //            videoHeight = prefs[VIDEO_HEIGH_KEY] ?: VideoTrainerDefaults.VIDEO_HEIGHT,
             frameRate   = prefs[FRAME_RATE_KEY] ?: ArcheryTrainerDefaults.FRAME_RATE,
             bitRate     = prefs[BIT_RATE_KEY] ?: ArcheryTrainerDefaults.BIT_RATE,
-            dummyString = prefs[DUMMY_STRING_KEY] ?: "Default dummy string",
+
+            shootingSessionButtonValues = prefs[SHOOTING_SESSION_BUTTON_VALUES_KEY] ?: "1,2,3,4,5,6,7,8,9,10,11,12",
             dummyFloat  = prefs[DUMMY_FLOAT_KEY] ?: 77.33f,
         )
     }
@@ -37,7 +38,8 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
 //        val videoHeight: Int = VideoTrainerDefaults.VIDEO_HEIGHT,
         val frameRate: Int   = ArcheryTrainerDefaults.FRAME_RATE,
         val bitRate: Int     = ArcheryTrainerDefaults.BIT_RATE,
-        val dummyString: String = "Default dummy string",
+
+        val shootingSessionButtonValues: String = "",
         val dummyFloat: Float = 33.77f,
     )
 
@@ -48,7 +50,7 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
 //        val VIDEO_HEIGH_KEY = intPreferencesKey("vid_height")
         val FRAME_RATE_KEY = intPreferencesKey("frame_rate")
         val BIT_RATE_KEY = intPreferencesKey("bit_rate")
-        val DUMMY_STRING_KEY = stringPreferencesKey("dsk")
+        val SHOOTING_SESSION_BUTTON_VALUES_KEY = stringPreferencesKey("ssbvk")
         val DUMMY_FLOAT_KEY = floatPreferencesKey("dfk")
     }
 
@@ -61,7 +63,7 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
 //            prefs[VIDEO_HEIGH_KEY] = newSettings.videoHeight
             prefs[FRAME_RATE_KEY]  = newSettings.frameRate
             prefs[BIT_RATE_KEY]    = newSettings.bitRate
-            prefs[DUMMY_STRING_KEY]    = newSettings.dummyString
+            prefs[SHOOTING_SESSION_BUTTON_VALUES_KEY]    = newSettings.shootingSessionButtonValues
             prefs[DUMMY_FLOAT_KEY]    = newSettings.dummyFloat
         }
     }
@@ -79,6 +81,9 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
     }
     suspend fun setBitRate(bitRate: Int) {
         dataStore.edit { prefs -> prefs[BIT_RATE_KEY] = bitRate }
+    }
+    suspend fun setShootingSessionButtonValues(buttonValues: String) {
+        dataStore.edit { prefs -> prefs[SHOOTING_SESSION_BUTTON_VALUES_KEY] = buttonValues }
     }
 //    suspend fun setDarkMode(enabled: Boolean) {
 //        dataStore.edit { prefs -> prefs[DARK_MODE_KEY] = enabled }

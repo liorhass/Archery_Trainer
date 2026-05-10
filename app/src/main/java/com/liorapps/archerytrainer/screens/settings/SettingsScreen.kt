@@ -138,8 +138,8 @@ private fun SettingsSection(
             SettingsSectionHeader(title = "Section-2")
 
             SettingsItem(
-                title = "Dummy String",
-                value = settings.dummyString.ifBlank { "(blank)" },
+                title = "Set Buttons",
+                value = settings.shootingSessionButtonValues.ifBlank { "(blank)" },
                 onClick = { openDialog = DialogType.PARAM_C },
             )
 //            HorizontalDivider(modifier = Modifier.padding(start = 16.dp))
@@ -182,9 +182,9 @@ private fun SettingsSection(
         )
 
         DialogType.PARAM_C -> ParamCDialog(
-            current = settings.dummyString,
+            current = settings.shootingSessionButtonValues,
             onConfirm = { newValue ->
-                onSettingsChange(settings.copy(dummyString = newValue))
+                onSettingsChange(settings.copy(shootingSessionButtonValues = newValue))
                 openDialog = null
             },
             onDismiss = { openDialog = null },
@@ -592,7 +592,7 @@ fun SettingsScreenContentPreview() {
                 videoResolution = ArcheryTrainerDefaults.VideoResolution.HD_1280x720(),
                 frameRate = 30,
                 bitRate = 15_000_000,
-                dummyString = "Hello, World!",
+                shootingSessionButtonValues = "1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12",
                 dummyFloat = 0.73f,
             ),
             onSettingsChange = {},

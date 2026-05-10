@@ -36,6 +36,8 @@ import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 //import androidx.navigation3.ui.rememberSceneSetupNavEntryDecorator
 import com.liorapps.archerytrainer.ArcheryTrainerApplication
+import com.liorapps.archerytrainer.screens.editsession.EditShootingSessionScreen
+import com.liorapps.archerytrainer.screens.editsession.EditShootingSessionViewModel
 import com.liorapps.archerytrainer.screens.sessions.ShootingSessionListScreen
 import com.liorapps.archerytrainer.screens.sessions.ShootingSessionListViewModel
 import com.liorapps.archerytrainer.screens.settings.SettingsScreen
@@ -111,7 +113,19 @@ fun ArcheryTrainerNavHost(/*navigationViewModel: NavigationViewModel*/) {
                             )
                         }
 
-                        is ATNavKey.EditShootingSession -> NavEntry(key) {}
+                        is ATNavKey.EditShootingSession -> NavEntry(key) {
+                            val viewModel: EditShootingSessionViewModel = viewModel(
+                                factory = EditShootingSessionViewModel.Factory(
+                                    sessionId = key.sessionId,
+                                    application = app,
+                                    settingsRepo = app.settingsRepository,
+                                )
+                            )
+                            EditShootingSessionScreen (
+                                viewModel = viewModel,
+                                onNavigateBack = { navigationViewModel.navigateBack() },
+                            )
+                        }
 
                         is ATNavKey.Settings -> NavEntry(key) {
                             val viewModel: SettingsViewModel = viewModel(

@@ -10,7 +10,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-class SettingsViewModel (val settingsRepo: SettingsRepository) : ViewModel() {
+class SettingsViewModel(val settingsRepo: SettingsRepository) : ViewModel() {
 
     val settingsFlow: StateFlow<SettingsRepository.Settings> = settingsRepo.settingsFlow
         .stateIn(viewModelScope, SharingStarted.Lazily, SettingsRepository.Settings())
