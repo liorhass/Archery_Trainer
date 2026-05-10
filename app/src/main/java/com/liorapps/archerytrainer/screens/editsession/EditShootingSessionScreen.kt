@@ -1,5 +1,7 @@
 package com.liorapps.archerytrainer.screens.editsession
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.List
@@ -16,7 +18,10 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.liorapps.archerytrainer.screens.video.ui.visible
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -44,11 +49,22 @@ fun EditShootingSessionScreen(
             )
         },
     ) { innerPadding ->
-        EditShootingSessionTab(
-            viewModel = viewModel,
-            uiState = uiState,
-            innerPadding = innerPadding,
-        )
+        if (uiState.activeTab == ActiveTab.EDIT_SESSION) {
+            EditShootingSessionTab(
+                viewModel = viewModel,
+                uiState = uiState,
+                innerPadding = innerPadding,
+            )
+        } else {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "I'm still empty"
+                )
+            }
+        }
     }
 }
 
