@@ -8,5 +8,5 @@ data class ShootingSessionEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
     val dateTimeUtc: Long,                 // stored as epoch milliseconds (UTC)
-    val comment: String = ""               // free text, up to 1000 chars
+    val comment: String = ""               // free text, up to 1000 chars todo: chane name to "Description"
 )

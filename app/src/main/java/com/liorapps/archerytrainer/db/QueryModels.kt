@@ -25,6 +25,6 @@ data class ShootingSetWithSession(
 data class ShootingSessionWithStats(
     val id: Long,
     val dateTimeUtc: Long,
-    val comment: String,
-    val totalShots: Int?                       // SUM(numberOfShots); null if no sets
+    val comment: String, //todo: change to "description"
+    val totalShots: Int                       // SUM(numberOfShots); 0 if no sets
 )

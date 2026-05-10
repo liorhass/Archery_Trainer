@@ -51,7 +51,7 @@ interface ShootingSessionDao {
             ses.id,
             ses.dateTimeUtc,
             ses.comment,
-            SUM(s.numberOfShots) AS totalShots
+            COALESCE(SUM(s.numberOfShots), 0) AS totalShots
         FROM shooting_sessions ses
         LEFT JOIN shooting_sets s ON s.shootingSessionId = ses.id
         WHERE ses.id = :shootingSessionId

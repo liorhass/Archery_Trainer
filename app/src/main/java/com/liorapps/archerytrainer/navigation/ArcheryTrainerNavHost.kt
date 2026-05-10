@@ -11,6 +11,7 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.VideoCameraFront
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.HorizontalDivider
@@ -35,6 +36,8 @@ import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 //import androidx.navigation3.ui.rememberSceneSetupNavEntryDecorator
 import com.liorapps.archerytrainer.ArcheryTrainerApplication
+import com.liorapps.archerytrainer.screens.sessions.ShootingSessionListScreen
+import com.liorapps.archerytrainer.screens.sessions.ShootingSessionListViewModel
 import com.liorapps.archerytrainer.screens.settings.SettingsScreen
 import com.liorapps.archerytrainer.screens.settings.SettingsViewModel
 import com.liorapps.archerytrainer.screens.video.logic.DelayedVideoViewModel
@@ -42,7 +45,18 @@ import com.liorapps.archerytrainer.screens.video.ui.DelayedVideoShellScreen
 import kotlinx.coroutines.launch
 
 @Composable
-fun ArcheryTrainerNavHost(navigationViewModel: NavigationViewModel) {
+fun ArcheryTrainerNavHost(/*navigationViewModel: NavigationViewModel*/) {
+
+    // Create the app's backStack with rememberXXXNavBackStack. This gives us persistence across
+    // process death so when the user re-opens the app he gets the last screen he was on
+    // See: https://developer.android.com/guide/navigation/navigation-3/save-state#use-remembernavbackstack
+//    val backStack = rememberATNavBackStack(ATNavKey.DelayedVideo)
+//    val backStack = getATBackStack()
+    val navigationViewModel: NavigationViewModel = viewModel(
+//        factory = NavigationViewModel.Factory(backStack)
+        factory = NavigationViewModel.Factory()
+    )
+
     val drawerState  = rememberDrawerState(DrawerValue.Closed)
     val scope        = rememberCoroutineScope()
     val app          = LocalContext.current.applicationContext as ArcheryTrainerApplication
@@ -85,6 +99,19 @@ fun ArcheryTrainerNavHost(navigationViewModel: NavigationViewModel) {
                                 onOpenDrawer = { scope.launch { drawerState.open() } }
                             )
                         }
+
+                        is ATNavKey.ShootingSessionList -> NavEntry(key) {
+                            val viewModel: ShootingSessionListViewModel = viewModel(
+                                factory = ShootingSessionListViewModel.Factory(app)
+                            )
+                            ShootingSessionListScreen (
+                                viewModel = viewModel,
+                                navigateTo = { navKey: ATNavKey -> navigationViewModel.navigateTo(navKey) },
+                                onOpenDrawer = { scope.launch { drawerState.open() } }
+                            )
+                        }
+
+                        is ATNavKey.EditShootingSession -> NavEntry(key) {}
 
                         is ATNavKey.Settings -> NavEntry(key) {
                             val viewModel: SettingsViewModel = viewModel(
@@ -152,6 +179,20 @@ fun AppDrawerContent(
             selected = currentRoute == ATNavKey.DelayedVideo,
             onClick = { onNavigate(ATNavKey.DelayedVideo) }
         )
+
+        StandardDrawerItem(
+            label = "Shooting Sessions",
+            icon = Icons.Default.Storage,
+            selected = currentRoute == ATNavKey.ShootingSessionList,
+            onClick = { onNavigate(ATNavKey.ShootingSessionList) }
+        )
+
+        HorizontalDivider(
+            modifier = Modifier.Companion.padding(vertical = 12.dp, horizontal = 28.dp),
+            thickness = 1.dp,
+            color = MaterialTheme.colorScheme.outlineVariant
+        )
+
         StandardDrawerItem(
             label = "Settings",
             icon = Icons.Default.Settings,

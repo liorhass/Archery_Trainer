@@ -10,19 +10,14 @@ import com.liorapps.archerytrainer.navigation.ArcheryTrainerNavHost
 import com.liorapps.archerytrainer.ui.theme.ArcheryTrainerTheme
 
 class MainActivity : ComponentActivity() {
-//    private val viewModel: MainViewModel by viewModels {
-//        val settingsRepository = (application as ArcheryTrainerApplication).settingsRepository
-//        MainViewModelFactory(application, settingsRepository)
-//    }
-    private val navigationViewModel: NavigationViewModel by viewModels()
-
+//    private val navigationViewModel: NavigationViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge() // Allow the app to draw behind system bars
         setContent {
             ArcheryTrainerTheme {
-                ArcheryTrainerNavHost(navigationViewModel)
+                ArcheryTrainerNavHost(/*navigationViewModel*/)
             }
         }
     }
