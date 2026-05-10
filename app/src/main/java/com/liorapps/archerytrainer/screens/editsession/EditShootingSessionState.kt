@@ -21,6 +21,8 @@ data class EditShootingSessionState(
     val showEditButtonDialog: Boolean = false,
     val editingButtonIndex: Int = -1,
     val buttonValueDraft: String = "",
+
+    val activeTab: ActiveTab = ActiveTab.EDIT_SESSION,
 ) {
     // ── Derived stats ─────────────────────────────────────────────────────────
     private val scoredSets: List<ShootingSetWithSession>
@@ -49,3 +51,5 @@ data class EditShootingSessionState(
     val isButtonValueInputValid: Boolean
         get() = buttonValueDraft.toIntOrNull()?.let { it in 1..999 } == true
 }
+
+enum class ActiveTab {EDIT_SESSION, SETS_LIST,}
