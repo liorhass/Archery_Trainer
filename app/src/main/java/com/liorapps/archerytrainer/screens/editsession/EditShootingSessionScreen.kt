@@ -220,7 +220,7 @@ private fun SessionCommentSection(comment: String) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
-private fun StatsCard(uiState: EditShootingSessionUiState) {
+private fun StatsCard(uiState: EditShootingSessionState) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
