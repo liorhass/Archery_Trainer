@@ -13,11 +13,13 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -44,9 +46,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.liorapps.archerytrainer.ArcheryTrainerDefaults
-import com.liorapps.archerytrainer.screens.video.logic.DelayedVideoViewModel
 import com.liorapps.archerytrainer.ui.theme.ArcheryTrainerTheme
 import kotlin.math.roundToInt
 import kotlin.text.format
@@ -115,20 +115,20 @@ private fun SettingsSection(
             // ---- Section 1 ----------------------------------------------
             SettingsSectionHeader(title = "Video")
 
-            SettingsItem(
+            SettingsStringItem(
                 title = "Delay (Sec)",
                 value = settings.delaySec.toString(),
                 onClick = { openDialog = DialogType.DELAY_SEC },
             )
 
-            SettingsItem(
+            SettingsStringItem(
                 title = "Video Bitrate (Bit/Sec)",
                 value = "%,d".format(settings.bitRate),
                 onClick = { openDialog = DialogType.VIDEO_BITRATE },
             )
 //            HorizontalDivider(modifier = Modifier.padding(start = 16.dp))
 
-            SettingsItem(
+            SettingsStringItem(
                 title = "Video Resolution",
                 value = settings.videoResolution.toString(),
                 onClick = { openDialog = DialogType.VIDEO_RESOLUTION },
@@ -137,14 +137,21 @@ private fun SettingsSection(
             // ---- Section 2 ----------------------------------------------
             SettingsSectionHeader(title = "Section-2")
 
-            SettingsItem(
+            SettingsBooleanItem(
+                title = "Give Sets Scores",
+                description = "Specify for each set a total score",
+                checked = settings.shootingSetsHaveScores,
+                onCheckedChange = { onSettingsChange(settings.copy(shootingSetsHaveScores = it)) },
+            )
+
+            SettingsStringItem(
                 title = "Set Buttons",
                 value = settings.shootingSessionButtonValues.ifBlank { "(blank)" },
                 onClick = { openDialog = DialogType.PARAM_C },
             )
 //            HorizontalDivider(modifier = Modifier.padding(start = 16.dp))
 
-            SettingsItem(
+            SettingsStringItem(
                 title = "Dummy Float",
                 value = "%.2f".format(settings.dummyFloat),
                 onClick = { openDialog = DialogType.PARAM_D },
@@ -211,7 +218,7 @@ private fun SettingsSectionHeader(title: String) {
         text = title,
         style = MaterialTheme.typography.labelMedium,
         color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.Companion
+        modifier = Modifier
             .fillMaxWidth()
             .padding(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 4.dp),
     )
@@ -219,7 +226,50 @@ private fun SettingsSectionHeader(title: String) {
 }
 
 @Composable
-private fun SettingsItem(
+fun SettingsBooleanItem(
+    title: String,
+    description: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .toggleable(
+                value = checked,
+                onValueChange = onCheckedChange,
+                role = Role.Checkbox
+            )
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = description,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Checkbox(
+            checked = checked,
+            onCheckedChange = null // null because the Row handles the click logic
+        )
+//        Switch(
+//            checked = checked,
+//            onCheckedChange = null
+//        )
+    }
+}
+
+@Composable
+private fun SettingsStringItem(
     title: String,
     value: String,
     onClick: () -> Unit,
@@ -230,15 +280,15 @@ private fun SettingsItem(
             .fillMaxWidth()
             .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.Companion.CenterVertically,
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Column(modifier = Modifier.Companion.weight(1f)) {
+        Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurface,
             )
-            Spacer(modifier = Modifier.Companion.height(2.dp))
+            Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = value,
                 style = MaterialTheme.typography.bodyMedium,

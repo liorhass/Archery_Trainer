@@ -22,6 +22,8 @@ data class EditShootingSessionState(
     val editingButtonIndex: Int = -1,
     val buttonValueDraft: String = "",
 
+    val shootingSetsHaveScore: Boolean = false,
+
     val activeTab: ActiveTab = ActiveTab.EDIT_SESSION,
 ) {
     // ── Derived stats ─────────────────────────────────────────────────────────

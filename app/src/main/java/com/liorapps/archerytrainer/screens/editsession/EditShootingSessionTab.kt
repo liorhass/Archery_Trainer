@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -27,8 +28,12 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -92,7 +97,6 @@ fun EditShootingSessionTab(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         // 1. Optional session description / comment
-//            if (!uiState.comment.isNullOrBlank()) {
         if (!uiState.comment.isBlank()) {
             SessionCommentSection(comment = uiState.comment)
         }
@@ -161,7 +165,7 @@ private fun StatsCard(uiState: EditShootingSessionState) {
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            // Total arrows – always shown
+            // Total shots – always shown
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = "🏹",
@@ -169,14 +173,14 @@ private fun StatsCard(uiState: EditShootingSessionState) {
                 )
                 Spacer(modifier = Modifier.width(10.dp))
                 Text(
-                    text = "Total Arrows:  ${uiState.totalArrows}",
+                    text = "Total Shots:  ${uiState.totalArrows}",
                     style = MaterialTheme.typography.bodyLarge,
                 )
             }
 
             // Total + average score – only when scoring is enabled AND at least one
             // set in the session carries a score.
-            if (EditShootingSessionViewModel.SETS_HAVE_SCORE && uiState.hasAnyScore) {
+            if (uiState.shootingSetsHaveScore && uiState.hasAnyScore) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = "🎯",
@@ -346,6 +350,9 @@ private fun EnterScoreDialog(
 ) {
     val showError = draft.isNotEmpty() && !isValid
 
+    // A FocusRequester to programmatically focus the input field
+    val focusRequester = remember { FocusRequester() }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Enter Score") },
@@ -353,7 +360,8 @@ private fun EnterScoreDialog(
             OutlinedTextField(
                 value = draft,
                 onValueChange = { onDraftChanged(it.take(3)) },  // hard cap at 3 chars
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth()
+                                   .focusRequester(focusRequester),
                 label = { Text("Score (0 – 999)") },
                 isError = showError,
                 supportingText = {
@@ -366,7 +374,15 @@ private fun EnterScoreDialog(
                     keyboardType = KeyboardType.Number,
                     imeAction = ImeAction.Done,
                 ),
+                // Wire the Done IME action to the same callback as OK
+                keyboardActions = KeyboardActions(
+                    onDone = { if (isValid) onConfirm() }
+                ),
             )
+            // Request focus (and therefore the keyboard) when the dialog first appears
+            LaunchedEffect(Unit) {
+                focusRequester.requestFocus()
+            }
         },
         confirmButton = {
             TextButton(

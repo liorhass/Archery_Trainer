@@ -5,6 +5,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -20,8 +21,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -36,7 +35,6 @@ import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxState
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberSwipeToDismissBoxState
@@ -57,10 +55,12 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.liorapps.archerytrainer.db.ShootingSessionWithStats
 import com.liorapps.archerytrainer.navigation.ATNavKey
-import java.time.Instant
-import java.time.LocalDateTime
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
+import com.liorapps.archerytrainer.screens.util.ConfirmationDialog
+import com.liorapps.archerytrainer.screens.util.formatDate
+import com.liorapps.archerytrainer.screens.util.formatDateTime
+import com.liorapps.archerytrainer.screens.util.formatTime
+import timber.log.Timber
+import kotlin.math.abs
 
 // ---------------------------------------------------------------------------
 // Screen entry point
@@ -75,11 +75,11 @@ fun ShootingSessionListScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    // The session awaiting the user's confirmation before it is deleted.
+    // The session awaiting the user's confirmation before it is deleted
     var sessionToDelete by remember { mutableStateOf<ShootingSessionWithStats?>(null) }
 
-    // Collect one-shot navigation events emitted by the ViewModel.
-    LaunchedEffect(Unit) {
+    // Collect one-shot navigation events emitted by the ViewModel
+    LaunchedEffect(Unit) { //todo: seems that this is a wasteful round trip VM->Screen->VM. The VM might as well navigate directly
         viewModel.navigationEvent.collect { key -> navigateTo(key) }
     }
 
@@ -122,11 +122,12 @@ fun ShootingSessionListScreen(
         }
     }
 
-    // Delete confirmation dialog — rendered outside the Scaffold so it floats
-    // above everything.
+    // Delete confirmation dialog - rendered outside the Scaffold so it floats above everything
     sessionToDelete?.let { session ->
-        DeleteConfirmationDialog(
-            session   = session,
+        val dateText = remember(session.dateTimeUtc) { formatDateTime(session.dateTimeUtc) }
+        ConfirmationDialog(
+            title = "Delete Session?",
+            text = "The session from $dateText will be permanently deleted.",
             onConfirm = {
                 viewModel.onDeleteConfirmed(session)
                 sessionToDelete = null
@@ -139,10 +140,6 @@ fun ShootingSessionListScreen(
         )
     }
 }
-
-// ---------------------------------------------------------------------------
-// Session list
-// ---------------------------------------------------------------------------
 
 @Composable
 private fun SessionList(
@@ -167,10 +164,6 @@ private fun SessionList(
     }
 }
 
-// ---------------------------------------------------------------------------
-// Swipeable card
-// ---------------------------------------------------------------------------
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SwipeableSessionCard(
@@ -178,8 +171,8 @@ private fun SwipeableSessionCard(
     onClick: () -> Unit,
     onSwipeToDelete: () -> Unit
 ) {
-    // confirmValueChange returns false so the card ALWAYS snaps back.
-    // Deletion happens only when the user taps "Delete" in the dialog.
+    // confirmValueChange returns false so the card ALWAYS snaps back. Deletion happens only when
+    // the user taps "Delete" in the dialog
     val dismissState = rememberSwipeToDismissBoxState(
         confirmValueChange = { value ->
             if (value == SwipeToDismissBoxValue.EndToStart) {
@@ -191,9 +184,9 @@ private fun SwipeableSessionCard(
     )
 
     SwipeToDismissBox(
-        state                    = dismissState,
+        state = dismissState,
         enableDismissFromStartToEnd = false,        // only left-swipe
-        backgroundContent        = { SwipeBackground(dismissState) }
+        backgroundContent = { SwipeBackground(dismissState) }
     ) {
         SessionCard(session = session, onClick = onClick)
     }
@@ -202,37 +195,38 @@ private fun SwipeableSessionCard(
 // The red background that is revealed while the user swipes.
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SwipeBackground(state: SwipeToDismissBoxState) {
-    val isActive = state.targetValue == SwipeToDismissBoxValue.EndToStart
+private fun SwipeBackground(dismissState: SwipeToDismissBoxState) {
+    BoxWithConstraints {
+        val cardWidthPx = constraints.maxWidth.toFloat()
+        val swipeFraction = abs(dismissState.requireOffset()) / cardWidthPx
+        val isActive = swipeFraction > 0.25f  // How much the user has to swipe before the background becomes active
+//        Timber.d("#### swipeFraction=${swipeFraction}")
 
-    val bgColor by animateColorAsState(
-        targetValue = if (isActive) MaterialTheme.colorScheme.errorContainer else Color.Transparent,
-        label       = "swipeBackground"
-    )
-    val iconScale by animateFloatAsState(
-        targetValue = if (isActive) 1f else 0.75f,
-        label       = "deleteIconScale"
-    )
-
-    Box(
-        modifier          = Modifier
-            .fillMaxSize()
-            .background(bgColor, shape = MaterialTheme.shapes.medium)
-            .padding(horizontal = 20.dp),
-        contentAlignment  = Alignment.CenterEnd
-    ) {
-        Icon(
-            imageVector        = Icons.Default.Delete,
-            contentDescription = null,
-            tint               = MaterialTheme.colorScheme.onErrorContainer,
-            modifier           = Modifier.scale(iconScale)
+        val bgColor by animateColorAsState(
+            targetValue = if (isActive) MaterialTheme.colorScheme.errorContainer else Color.Transparent,
+            label = "swipeBackground"
         )
+        val iconScale by animateFloatAsState(
+            targetValue = if (isActive) 1.5f else 0.75f,
+            label = "deleteIconScale"
+        )
+
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(bgColor, shape = MaterialTheme.shapes.medium)
+                .padding(horizontal = 20.dp),
+            contentAlignment = Alignment.CenterEnd
+        ) {
+            Icon(
+                imageVector = Icons.Default.Delete,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onErrorContainer,
+                modifier = Modifier.scale(iconScale)
+            )
+        }
     }
 }
-
-// ---------------------------------------------------------------------------
-// Session card
-// ---------------------------------------------------------------------------
 
 @Composable
 private fun SessionCard(
@@ -350,42 +344,6 @@ private fun EmptyState(modifier: Modifier = Modifier) {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Delete confirmation dialog
-// ---------------------------------------------------------------------------
-
-@Composable
-private fun DeleteConfirmationDialog(
-    session: ShootingSessionWithStats,
-    onConfirm: () -> Unit,
-    onDismiss: () -> Unit
-) {
-    val dateText = remember(session.dateTimeUtc) { formatDate(session.dateTimeUtc) }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Delete Session?") },
-        text  = {
-            Text("The session from $dateText will be permanently deleted.")
-        },
-        confirmButton = {
-            TextButton(
-                onClick = onConfirm,
-                colors  = ButtonDefaults.textButtonColors(
-                    contentColor = MaterialTheme.colorScheme.error
-                )
-            ) {
-                Text("Delete")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
-            }
-        }
-    )
-}
-
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
 private fun ShootingSessionListTopBar(
@@ -417,15 +375,3 @@ private fun ShootingSessionListTopBar(
     )
 }
 
-// ---------------------------------------------------------------------------
-// Date / time helpers  (requires API 26+)
-// ---------------------------------------------------------------------------
-
-private val DATE_FORMATTER = DateTimeFormatter.ofPattern("EEEE, d MMM yyyy")
-private val TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm")
-
-private fun toLocalDateTime(epochMs: Long): LocalDateTime =
-    LocalDateTime.ofInstant(Instant.ofEpochMilli(epochMs), ZoneId.systemDefault())
-
-private fun formatDate(epochMs: Long): String = DATE_FORMATTER.format(toLocalDateTime(epochMs))
-private fun formatTime(epochMs: Long): String = TIME_FORMATTER.format(toLocalDateTime(epochMs))

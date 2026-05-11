@@ -56,14 +56,11 @@ fun EditShootingSessionScreen(
                 innerPadding = innerPadding,
             )
         } else {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "I'm still empty"
-                )
-            }
+            ShootingSessionSetsTab(
+                viewModel = viewModel,
+                uiState = uiState,
+                innerPadding = innerPadding,
+            )
         }
     }
 }

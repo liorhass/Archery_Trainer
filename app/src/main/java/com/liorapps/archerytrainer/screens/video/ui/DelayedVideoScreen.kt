@@ -19,9 +19,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
-import com.liorapps.archerytrainer.screens.video.logic.CameraPermissionState
 import com.liorapps.archerytrainer.screens.video.logic.DelayedVideoViewModel
-import com.liorapps.archerytrainer.screens.video.logic.PlaybackState
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalPermissionsApi::class)
 @Composable
@@ -39,7 +37,7 @@ fun DelayedVideoShellScreen(
         onPermissionDenied = { viewModel.onCameraPermissionDenied() }
     )
 
-    if (cameraPermissionState == CameraPermissionState.GRANTED) {
+    if (cameraPermissionState == DelayedVideoViewModel.CameraPermissionState.GRANTED) {
         DelayedVideoScreen(viewModel, onOpenDrawer, onNavigateToSettings)
     } else {
         NoCameraPermissionMsg()
@@ -83,7 +81,7 @@ fun DelayedVideoScreen(
                 innerPadding = PaddingValues(0.dp),
                 videoResolution = videoResolution,
                 isLandscape = isLandscape,
-                isPlaying = viewModel.playbackState == PlaybackState.PLAYING,
+                isPlaying = viewModel.playbackState == DelayedVideoViewModel.PlaybackState.PLAYING,
                 delaySec = settings.delaySec,
                 onSurfaceReady = viewModel::onSurfaceReady,
                 onSurfaceDestroyed = viewModel::onSurfaceDestroyed,
@@ -112,7 +110,7 @@ fun DelayedVideoScreen(
                     innerPadding = innerPadding,
                     videoResolution = videoResolution,
                     isLandscape = isLandscape,
-                    isPlaying = viewModel.playbackState == PlaybackState.PLAYING,
+                    isPlaying = viewModel.playbackState == DelayedVideoViewModel.PlaybackState.PLAYING,
                     delaySec = settings.delaySec,
                     onSurfaceReady = viewModel::onSurfaceReady,
                     onSurfaceDestroyed = viewModel::onSurfaceDestroyed,

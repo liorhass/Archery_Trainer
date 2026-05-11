@@ -39,17 +39,6 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /**
- * PlaybackState — the only two states visible to the UI.
- *
- * The decoder's internal PLAYING / FROZEN / CATCHING_UP state machine is an
- * implementation detail of [DecoderCoroutine] and is intentionally not
- * surfaced here.
- */
-enum class PlaybackState { PAUSED, PLAYING }
-
-enum class CameraPermissionState { CHECKING, GRANTED, DENIED }
-
-/**
  * MainViewModel — the single point of coordination between the UI and the
  * encoder/decoder pipeline.
  *
@@ -583,5 +572,16 @@ class DelayedVideoViewModel(application: Application, val settingsRepo: Settings
             throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
         }
     }
+
+    /**
+     * PlaybackState — the only two states visible to the UI.
+     *
+     * The decoder's internal PLAYING / FROZEN / CATCHING_UP state machine is an
+     * implementation detail of [DecoderCoroutine] and is intentionally not
+     * surfaced here.
+     */
+    enum class PlaybackState { PAUSED, PLAYING }
+
+    enum class CameraPermissionState { CHECKING, GRANTED, DENIED }
 }
 

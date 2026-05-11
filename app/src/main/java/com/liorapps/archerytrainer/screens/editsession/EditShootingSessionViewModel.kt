@@ -9,15 +9,17 @@ import androidx.lifecycle.viewModelScope
 import com.liorapps.archerytrainer.db.ATDatabase
 import com.liorapps.archerytrainer.db.ShootingSessionEntity
 import com.liorapps.archerytrainer.db.ShootingSetEntity
+import com.liorapps.archerytrainer.db.ShootingSetWithSession
 import com.liorapps.archerytrainer.screens.settings.SettingsRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import timber.log.Timber
 
 class EditShootingSessionViewModel (
     val sessionId: Long,
@@ -26,18 +28,9 @@ class EditShootingSessionViewModel (
 ) : AndroidViewModel(application) {
 
     companion object {
-        /**
-         * When true, tapping an Add-Set button opens a dialog to enter a score.
-         * When false, a Set is inserted immediately with score = -1 (no score).
-         */
-        const val SETS_HAVE_SCORE = false
-
         /** Default arrow counts shown on the 12 Add-Set buttons. */
         val DEFAULT_BUTTON_VALUES = listOf(3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 15, 18)
 
-        private val BUTTON_VALUES_KEY = stringPreferencesKey("arrow_button_values")
-
-        const val NAV_ARG_SESSION_ID = "sessionId"
         const val NEW_SESSION_ID = -1L
     }
 
@@ -47,10 +40,20 @@ class EditShootingSessionViewModel (
     val settingsFlow: StateFlow<SettingsRepository.Settings> = settingsRepo.settingsFlow
         .stateIn(viewModelScope, SharingStarted.Lazily, SettingsRepository.Settings())
 
-    private val _uiState = MutableStateFlow(
+    private val _uiStateFlow = MutableStateFlow(
         EditShootingSessionState( sessionId = sessionId, )
     )
-    val uiState: StateFlow<EditShootingSessionState> = _uiState.asStateFlow()
+
+    val uiState: StateFlow<EditShootingSessionState> =
+        combine(_uiStateFlow, settingsFlow) { uiState, settings ->
+            uiState.copy(shootingSetsHaveScore = settings.shootingSetsHaveScores)
+        }.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = EditShootingSessionState(sessionId = sessionId)
+        )
+
+//    val uiState: StateFlow<EditShootingSessionState> = _uiState.asStateFlow()
 
     init {
         loadButtonValues()
@@ -70,7 +73,7 @@ class EditShootingSessionViewModel (
                     ?: DEFAULT_BUTTON_VALUES
             }
             .collect { values ->
-                _uiState.update { it.copy(buttonValues = values) }
+                _uiStateFlow.update { it.copy(buttonValues = values) }
             }
         }
     }
@@ -80,7 +83,7 @@ class EditShootingSessionViewModel (
             val session = shootingSessionDao
                 .getShootingSessionWithStats(sessionId)
                 ?: return@launch
-            _uiState.update {
+            _uiStateFlow.update {
                 it.copy(
                     sessionId = session.id,
                     sessionDateTimeUtc = session.dateTimeUtc,
@@ -94,7 +97,7 @@ class EditShootingSessionViewModel (
         viewModelScope.launch {
             shootingSetDao
                 .getShootingSetsForShootingSession(sessionId)
-                .collect { sets -> _uiState.update { it.copy(sets = sets) } }
+                .collect { sets -> _uiStateFlow.update { it.copy(sets = sets) } }
         }
     }
 
@@ -106,26 +109,26 @@ class EditShootingSessionViewModel (
     private suspend fun ensureSessionCreated(): Long {
 //        Timber.d("ensureSessionCreated(): _uiState.value.sessionId=${_uiState.value.sessionId}")
 //        _uiState.value.sessionId?.let { return it }
-        _uiState.value.sessionId.let { if (it != -1L) return it }
+        _uiStateFlow.value.sessionId.let { if (it != -1L) return it }
 
         val now = System.currentTimeMillis()
         val newId = shootingSessionDao.insertShootingSession(
             ShootingSessionEntity(
                 dateTimeUtc = now,
-                comment = _uiState.value.comment,
+                comment = _uiStateFlow.value.comment,
             )
         )
 //        Timber.d("ensureSessionCreated(): Inserted new session ID=$newId")
-        _uiState.update { it.copy(sessionId = newId, sessionDateTimeUtc = now) }
+        _uiStateFlow.update { it.copy(sessionId = newId, sessionDateTimeUtc = now) }
         observeSets(newId)
         return newId
     }
 
     /** Add-Set button */
     fun onSetButtonTapped(arrowCount: Int) {
-        if (SETS_HAVE_SCORE) {
+        if (settingsFlow.value.shootingSetsHaveScores) {
             // Open score dialog; the set will be inserted after the user confirms.
-            _uiState.update {
+            _uiStateFlow.update {
                 it.copy(
                     showScoreDialog = true,
                     scoreDraft = "",
@@ -154,7 +157,7 @@ class EditShootingSessionViewModel (
 
     // Edit-Comment dialog
     fun onEditCommentClicked() {
-        _uiState.update {
+        _uiStateFlow.update {
             it.copy(
                 showEditCommentDialog = true,
                 commentDraft = it.comment,
@@ -165,19 +168,19 @@ class EditShootingSessionViewModel (
     /** Called on every keystroke; enforces the 1000-character hard cap. */
     fun onCommentDraftChanged(value: String) {
         if (value.length <= 1000) {
-            _uiState.update { it.copy(commentDraft = value) }
+            _uiStateFlow.update { it.copy(commentDraft = value) }
         }
     }
 
     fun onCommentConfirmed() {
 //        val trimmed = _uiState.value.commentDraft.trim().takeIf { it.isNotBlank() }
-        val trimmed = _uiState.value.commentDraft.trim()
-        _uiState.update { it.copy(comment = trimmed, showEditCommentDialog = false) }
+        val trimmed = _uiStateFlow.value.commentDraft.trim()
+        _uiStateFlow.update { it.copy(comment = trimmed, showEditCommentDialog = false) }
 
         // Persist only if the session row already exists.
         // For a brand-new session the comment is held in-memory and will be written to
         // the DB inside the first ensureSessionCreated() call when the first set is created.
-        val sessionId = _uiState.value.sessionId ?: return
+        val sessionId = _uiStateFlow.value.sessionId
         viewModelScope.launch {
             val existing = shootingSessionDao
                 .getShootingSessionWithStats(sessionId) ?: return@launch
@@ -192,33 +195,33 @@ class EditShootingSessionViewModel (
     }
 
     fun onCommentDismissed() {
-        _uiState.update { it.copy(showEditCommentDialog = false) }
+        _uiStateFlow.update { it.copy(showEditCommentDialog = false) }
     }
 
     // Enter-Score dialog
     fun onScoreDraftChanged(value: String) {
-        _uiState.update { it.copy(scoreDraft = value) }
+        _uiStateFlow.update { it.copy(scoreDraft = value) }
     }
 
     fun onScoreConfirmed() {
-        val score = _uiState.value.scoreDraft
+        val score = _uiStateFlow.value.scoreDraft
             .toIntOrNull()?.takeIf { it in 0..999 } ?: return
-        val arrowCount = _uiState.value.pendingArrowCount ?: return
-        _uiState.update {
+        val arrowCount = _uiStateFlow.value.pendingArrowCount ?: return
+        _uiStateFlow.update {
             it.copy(showScoreDialog = false, pendingArrowCount = null, scoreDraft = "")
         }
         viewModelScope.launch { addSet(arrowCount, score) }
     }
 
     fun onScoreDismissed() {
-        _uiState.update {
+        _uiStateFlow.update {
             it.copy(showScoreDialog = false, pendingArrowCount = null, scoreDraft = "")
         }
     }
 
     // Edit-Button-Value dialog
     fun onSetButtonLongPressed(index: Int) {
-        _uiState.update {
+        _uiStateFlow.update {
             it.copy(
                 showEditButtonDialog = true,
                 editingButtonIndex = index,
@@ -228,19 +231,19 @@ class EditShootingSessionViewModel (
     }
 
     fun onButtonValueDraftChanged(value: String) {
-        _uiState.update { it.copy(buttonValueDraft = value) }
+        _uiStateFlow.update { it.copy(buttonValueDraft = value) }
     }
 
     fun onButtonValueConfirmed() {
-        val newValue = _uiState.value.buttonValueDraft
+        val newValue = _uiStateFlow.value.buttonValueDraft
             .toIntOrNull()?.takeIf { it in 1..999 } ?: return
-        val index = _uiState.value.editingButtonIndex.takeIf { it >= 0 } ?: return
+        val index = _uiStateFlow.value.editingButtonIndex.takeIf { it >= 0 } ?: return
 
-        val updated = _uiState.value.buttonValues
+        val updated = _uiStateFlow.value.buttonValues
             .toMutableList()
             .also { it[index] = newValue }
 
-        _uiState.update {
+        _uiStateFlow.update {
             it.copy(
                 buttonValues = updated,
                 showEditButtonDialog = false,
@@ -255,7 +258,7 @@ class EditShootingSessionViewModel (
     }
 
     fun onButtonValueDismissed() {
-        _uiState.update {
+        _uiStateFlow.update {
             it.copy(
                 showEditButtonDialog = false,
                 editingButtonIndex = -1,
@@ -265,10 +268,25 @@ class EditShootingSessionViewModel (
     }
 
     fun onSetActiveTab(newActiveTab: ActiveTab) {
-        _uiState.update {
+        _uiStateFlow.update {
             it.copy(
                 activeTab = newActiveTab,
             )
+        }
+    }
+
+    // Called when the user taps an existing set card
+    fun onSetClick(setId: Long) {
+        Timber.d("onSetClicked(): SetID=$setId")
+//        viewModelScope.launch {
+//            _navigationEvent.send(ATNavKey.EditShootingSession(sessionId))
+//        }
+    }
+
+    // Called after the user confirms the delete-set dialog
+    fun onDeleteSetConfirmed(set: ShootingSetWithSession) {
+        viewModelScope.launch {
+            shootingSetDao.deleteShootingSetById(set.id)
         }
     }
 

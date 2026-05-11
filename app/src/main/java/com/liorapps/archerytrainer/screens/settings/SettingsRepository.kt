@@ -2,6 +2,7 @@ package com.liorapps.archerytrainer.screens.settings
 
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
@@ -27,6 +28,8 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
 
             shootingSessionButtonValues = prefs[SHOOTING_SESSION_BUTTON_VALUES_KEY] ?: "1,2,3,4,5,6,7,8,9,10,11,12",
             dummyFloat  = prefs[DUMMY_FLOAT_KEY] ?: 77.33f,
+
+            shootingSetsHaveScores  = prefs[SHOOTING_SETS_HAVE_SCORES_KEY] ?: false,
         )
     }
 //    val darkMode: Flow<Boolean> = dataStore.data.map { prefs -> prefs[DARK_MODE_KEY] ?: false }
@@ -41,6 +44,10 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
 
         val shootingSessionButtonValues: String = "",
         val dummyFloat: Float = 33.77f,
+
+        /** When true, tapping an Add-Set button opens a dialog to enter a score.
+         * When false, a Set is inserted immediately with score = -1 (no score) */
+        val shootingSetsHaveScores: Boolean = false,
     )
 
     companion object {
@@ -52,6 +59,7 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
         val BIT_RATE_KEY = intPreferencesKey("bit_rate")
         val SHOOTING_SESSION_BUTTON_VALUES_KEY = stringPreferencesKey("ssbvk")
         val DUMMY_FLOAT_KEY = floatPreferencesKey("dfk")
+        val SHOOTING_SETS_HAVE_SCORES_KEY = booleanPreferencesKey("sshsk")
     }
 
     // Write settings
@@ -65,6 +73,7 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
             prefs[BIT_RATE_KEY]    = newSettings.bitRate
             prefs[SHOOTING_SESSION_BUTTON_VALUES_KEY]    = newSettings.shootingSessionButtonValues
             prefs[DUMMY_FLOAT_KEY]    = newSettings.dummyFloat
+            prefs[SHOOTING_SETS_HAVE_SCORES_KEY] = newSettings.shootingSetsHaveScores
         }
     }
     suspend fun setDelaySec(delaySec: Int) {
