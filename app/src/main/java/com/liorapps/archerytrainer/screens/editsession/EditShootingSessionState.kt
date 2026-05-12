@@ -27,7 +27,7 @@ data class EditShootingSessionState(
     val activeTab: ActiveTab = ActiveTab.EDIT_SESSION,
 ) {
     // ── Derived stats ─────────────────────────────────────────────────────────
-    private val scoredSets: List<ShootingSetWithSession>
+    val scoredSets: List<ShootingSetWithSession>
         get() = sets.filter { it.score != -1 }
 
     val totalArrows: Int

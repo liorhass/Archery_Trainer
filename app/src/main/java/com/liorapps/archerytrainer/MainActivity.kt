@@ -16,7 +16,7 @@ class MainActivity : ComponentActivity() {
 
         // See if we have device-admin privileges, and request it from the user if we don't. This
         // privilege is needed to be able to lock the screen
-        requestDeviceAdminPrivilege(this, REQUEST_CODE_ADMIN)
+        ScrLockManagerImpl.requestAdminPrivilegeIfNeeded(this, ScrLockManagerImpl.REQUEST_CODE_ADMIN)
 
         // Tell the system that we want to be active even when the device is locked (over the lock screen)
         setShowWhenLocked(true)

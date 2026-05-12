@@ -4,7 +4,7 @@ import android.app.Activity
 import android.content.Context
 
 interface ScrLockManager {
-    fun lockScreen(): Boolean
-    fun requestAdminIfNeeded(activity: Activity)
+    fun lockScreen(context: Context): Boolean
+    fun requestAdminPrivilegeIfNeeded(activity: Activity, requestCode: Int)
     fun isAdminActive(context: Context): Boolean
 }

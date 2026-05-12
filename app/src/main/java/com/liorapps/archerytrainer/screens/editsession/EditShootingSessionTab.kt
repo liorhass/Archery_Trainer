@@ -1,6 +1,7 @@
 package com.liorapps.archerytrainer.screens.editsession
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -35,6 +36,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -96,69 +98,75 @@ fun EditShootingSessionTab(
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        // 1. Optional session description / comment
-        if (!uiState.comment.isBlank()) {
-            SessionCommentSection(comment = uiState.comment)
-        }
+        // Arrow and score totals
+        StatsSection(uiState = uiState)
 
-        // 2. Arrow and score totals
-        StatsCard(uiState = uiState)
-
-        // 3. Add-Set button grid
+        // Add-Set button grid
         AddSetSection(
             buttonValues = uiState.buttonValues,
             onButtonTapped = viewModel::onSetButtonTapped,
             onButtonLongPressed = viewModel::onSetButtonLongPressed,
         )
-    }
-}
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Session Comment Section
-// ─────────────────────────────────────────────────────────────────────────────
-
-@Composable
-private fun SessionCommentSection(comment: String) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant,
-        ),
-    ) {
-        // The inner Box is constrained to ~3 lines tall (bodyMedium lineHeight ≈ 20 sp).
-        // verticalScroll allows the user to read longer comments by scrolling.
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(max = 60.dp)          // ≈ 3 × 20 dp line height
-                    .verticalScroll(rememberScrollState()),
-            ) {
-                Text(
-                    text = comment,
-                    style = MaterialTheme.typography.bodyMedium
-                        .copy(fontStyle = FontStyle.Italic),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+        // Optional session description / comment
+        if (!uiState.comment.isBlank()) {
+            SessionCommentSection(comment = uiState.comment)
         }
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Stats Card
-// ─────────────────────────────────────────────────────────────────────────────
+@Composable
+private fun SessionCommentSection(comment: String) {
+//    Card(
+//        modifier = Modifier.fillMaxWidth(),
+//        colors = CardDefaults.cardColors(
+//            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+//        ),
+//    ) {
+        // The inner Box is constrained to ~3 lines tall (bodyMedium lineHeight ≈ 20 sp).
+        // verticalScroll allows the user to read longer comments by scrolling.
+        Column (
+            modifier = Modifier
+                .fillMaxWidth()
+//                .padding(horizontal = 12.dp, vertical = 8.dp),
+        ) {
+            // ── Section header ────────────────────────────────────────────────────
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                HorizontalDivider(modifier = Modifier.weight(1f))
+                Text(
+                    text = "   Description   ",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                HorizontalDivider(modifier = Modifier.weight(1f))
+            }
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 60.dp)          // ≈ 3 × 20 dp line height
+                    .verticalScroll(rememberScrollState())
+                    .background(MaterialTheme.colorScheme.surface)
+            ) {
+                Text(
+                    text = comment,
+                    style = MaterialTheme.typography.bodyMedium.copy(fontStyle = FontStyle.Italic),
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+            }
+        }
+//    }
+}
 
 @Composable
-private fun StatsCard(uiState: EditShootingSessionState) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-    ) {
+private fun StatsSection(uiState: EditShootingSessionState) {
+//    Card(
+//        modifier = Modifier.fillMaxWidth(),
+//        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+//    ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -166,35 +174,78 @@ private fun StatsCard(uiState: EditShootingSessionState) {
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             // Total shots – always shown
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = "🏹",
-                    style = MaterialTheme.typography.titleMedium,
-                )
-                Spacer(modifier = Modifier.width(10.dp))
-                Text(
-                    text = "Total Shots:  ${uiState.totalArrows}",
-                    style = MaterialTheme.typography.bodyLarge,
-                )
-            }
-
-            // Total + average score – only when scoring is enabled AND at least one
-            // set in the session carries a score.
-            if (uiState.shootingSetsHaveScore && uiState.hasAnyScore) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = "🎯",
-                        style = MaterialTheme.typography.titleMedium,
-                    )
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Text(
-                        text = "Total Score:  ${uiState.totalScore}" +
-                                "     Avg: ${"%.1f".format(uiState.averageScore)}",
-                        style = MaterialTheme.typography.bodyLarge,
-                    )
+            Column {
+//                Text(
+//                    text = "🏹",
+//                    style = MaterialTheme.typography.titleMedium,
+//                )
+//                Spacer(modifier = Modifier.width(10.dp))
+//                Text(
+//                    text = "Sets:  ${uiState.sets.size}  (${uiState.scoredSets.size} with score)",
+//                    style = MaterialTheme.typography.bodyLarge,
+//                )
+//                Text(
+//                    text = "Shots:  ${uiState.totalArrows}  (${uiState.totalScoredArrows} with score)",
+//                    style = MaterialTheme.typography.bodyLarge,
+//                )
+//                Text(
+//                    text = "Total Score:  ${uiState.totalScore}  Average Score: ${"%.1f".format(uiState.averageScore)}",
+//                    style = MaterialTheme.typography.bodyLarge,
+//                )
+                StatSectionRow("Sets:", "${uiState.sets.size}", "(${uiState.scoredSets.size} with score)")
+                StatSectionRow("Shots:", "${uiState.totalArrows}", "(${uiState.totalScoredArrows} with score)")
+                if (uiState.hasAnyScore) {
+                    StatSectionRow("Total Score:", "${uiState.totalScore}", "")
+                    StatSectionRow("Avg. Score:", "%.1f".format(uiState.averageScore), "")
                 }
             }
+
+//            // Total + average score – only when scoring is enabled AND at least one
+//            // set in the session carries a score.
+//            if (uiState.hasAnyScore) {
+//                Row(verticalAlignment = Alignment.CenterVertically) {
+//                    Text(
+//                        text = "🎯",
+//                        style = MaterialTheme.typography.titleMedium,
+//                    )
+//                    Spacer(modifier = Modifier.width(10.dp))
+//                    Text(
+//                        text = "Total Score:  ${uiState.totalScore}" +
+//                                "     Avg: ${"%.1f".format(uiState.averageScore)}",
+//                        style = MaterialTheme.typography.bodyLarge,
+//                    )
+//                }
+//            }
         }
+//    }
+}
+
+@Composable
+private fun StatSectionRow(
+    col1: String,
+    col2: String,
+    col3: String,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 0.dp)
+    ) {
+        Text(
+            text = col1,
+            modifier = Modifier.weight(40f),
+            fontWeight = FontWeight.Bold
+        )
+        Text(
+            text = col2,
+            modifier = Modifier.weight(15f),
+            fontWeight = FontWeight.Normal
+        )
+        Text(
+            text = col3,
+            modifier = Modifier.weight(45f),
+            fontWeight = FontWeight.Normal
+        )
     }
 }
 

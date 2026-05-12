@@ -1,11 +1,11 @@
 package com.liorapps.archerytrainer.screens.editsession
 
 import android.app.Application
-import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.liorapps.archerytrainer.ScrLockManagerImpl
 import com.liorapps.archerytrainer.db.ATDatabase
 import com.liorapps.archerytrainer.db.ShootingSessionEntity
 import com.liorapps.archerytrainer.db.ShootingSetEntity
@@ -41,7 +41,7 @@ class EditShootingSessionViewModel (
         .stateIn(viewModelScope, SharingStarted.Lazily, SettingsRepository.Settings())
 
     private val _uiStateFlow = MutableStateFlow(
-        EditShootingSessionState( sessionId = sessionId, )
+        EditShootingSessionState( sessionId = sessionId )
     )
 
     val uiState: StateFlow<EditShootingSessionState> =
@@ -163,6 +163,10 @@ class EditShootingSessionViewModel (
                 commentDraft = it.comment,
             )
         }
+    }
+
+    fun onLockScreenClicked() {
+        ScrLockManagerImpl.lockScreen(getApplication())
     }
 
     /** Called on every keystroke; enforces the 1000-character hard cap. */
