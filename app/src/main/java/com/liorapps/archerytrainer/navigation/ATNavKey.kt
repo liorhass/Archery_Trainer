@@ -20,6 +20,9 @@ sealed class ATNavKey(
     @Serializable
     data class EditShootingSession(val sessionId: Long = -1) : ATNavKey(isNavigationRoot = false, requiresSlideGestures = false)
 
+    @Serializable
+    data object About : ATNavKey(isNavigationRoot = true, requiresSlideGestures = false)
+
     // Screens that carry navigation data as part of the key
 //    @Serializable data class ExampleWithItemDetail(val itemId: String) : NavKey(requiresSlideGestures = false)
 }

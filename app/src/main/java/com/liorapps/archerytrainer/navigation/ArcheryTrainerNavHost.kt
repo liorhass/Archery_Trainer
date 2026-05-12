@@ -36,6 +36,8 @@ import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 //import androidx.navigation3.ui.rememberSceneSetupNavEntryDecorator
 import com.liorapps.archerytrainer.ArcheryTrainerApplication
+import com.liorapps.archerytrainer.screens.about.AboutScreen
+import com.liorapps.archerytrainer.screens.about.AboutViewModel
 import com.liorapps.archerytrainer.screens.editsession.EditShootingSessionScreen
 import com.liorapps.archerytrainer.screens.editsession.EditShootingSessionViewModel
 import com.liorapps.archerytrainer.screens.sessions.ShootingSessionListScreen
@@ -134,6 +136,16 @@ fun ArcheryTrainerNavHost(/*navigationViewModel: NavigationViewModel*/) {
                             SettingsScreen(
                                 viewModel = viewModel,
                                 onNavigateBack = { navigationViewModel.navigateBack() },
+                                onOpenDrawer = { scope.launch { drawerState.open() } },
+                            )
+                        }
+
+                        is ATNavKey.About -> NavEntry(key) {
+                            val viewModel: AboutViewModel = viewModel(
+                                factory = AboutViewModel.Factory(app)
+                            )
+                            AboutScreen(
+                                viewModel = viewModel,
                                 onOpenDrawer = { scope.launch { drawerState.open() } },
                             )
                         }
@@ -242,8 +254,8 @@ fun AppDrawerContent(
         StandardDrawerItem(
             label = "About",
             icon = Icons.Default.Info,
-            selected = false,
-            onClick = { }
+            selected = currentRoute == ATNavKey.About,
+            onClick = { onNavigate(ATNavKey.About) }
         )
     }
 }

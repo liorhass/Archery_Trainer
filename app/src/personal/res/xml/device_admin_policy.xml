@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<device-admin>
+    <uses-policies>
+        <!-- This is the only policy needed to call lockNow() -->
+        <force-lock />
+    </uses-policies>
+</device-admin>

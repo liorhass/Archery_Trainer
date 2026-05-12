@@ -37,6 +37,18 @@ android {
         compose = true
         buildConfig = true
     }
+
+    flavorDimensions += "distribution"
+    productFlavors {
+        create("personal") {
+            dimension = "distribution"
+//            applicationIdSuffix = ".personal"   // optional — makes it a separate app
+            versionNameSuffix = "-personal"
+        }
+        create("public") {
+            dimension = "distribution"
+        }
+    }
 }
 
 room {
