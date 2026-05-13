@@ -1,26 +1,50 @@
 package com.liorapps.archerytrainer.screens.about
 
 import android.content.Intent
-import android.net.Uri
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.text.BasicText
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.*
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.LinkAnnotation
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.withLink
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
+import com.liorapps.archerytrainer.ui.theme.ArcheryTrainerTheme
+import com.liorapps.archerytrainer.R
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AboutScreen(
     viewModel: AboutViewModel,
     onOpenDrawer: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    AboutScreenContent(
+        uiState = uiState,
+        onOpenDrawer = onOpenDrawer
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AboutScreenContent(
+    uiState: AboutUiState,
+    onOpenDrawer: () -> Unit
+) {
     val context = LocalContext.current
 
     Scaffold(
@@ -42,34 +66,121 @@ fun AboutScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+                .padding(20.dp),
+//            horizontalAlignment = Alignment.CenterHorizontally,
+//            verticalArrangement = Arrangement.Center
         ) {
-            Text(
-                text = "TimeShift",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold
-            )
+            Spacer(modifier = Modifier.height(30.dp))
 
-            Spacer(modifier = Modifier.height(8.dp))
+//            Text(
+//                text = "Archery Trainer",
+//                style = MaterialTheme.typography.headlineMedium,
+//                fontWeight = FontWeight.Bold
+//            )
+            AboutHeader()
+
+            Spacer(modifier = Modifier.height(20.dp))
 
             Text(
-                text = "Version ${uiState.versionName} (${uiState.versionCode})",
+                text = "Copyright © Lior Hass    2026",
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            Button(
+            Text(
+                text = "Version ${uiState.versionName} (${uiState.versionCode})    ${uiState.buildDateTime}",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+//            if (uiState.buildDateTime.isNotEmpty()) {
+//                Spacer(modifier = Modifier.height(4.dp))
+//                Text(
+//                    text = "Built on ${uiState.buildDateTime}",
+//                    style = MaterialTheme.typography.bodyMedium,
+//                    color = MaterialTheme.colorScheme.onSurfaceVariant
+//                )
+//            }
+
+            Spacer(modifier = Modifier.height(32.dp))
+
+            HtmlLikeLink(
                 onClick = {
-                    val intent = Intent(Intent.ACTION_VIEW, uiState.githubUrl.toUri())
-                    context.startActivity(intent)
-                }
+                    if (uiState.githubUrl.isNotEmpty()) {
+                        val intent = Intent(Intent.ACTION_VIEW, uiState.githubUrl.toUri())
+                        context.startActivity(intent)
+                    }
+                },
+                text = "View Source on GitHub",
+            )
+
+        }
+    }
+}
+
+@Composable
+fun AboutHeader() {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically // Keeps the logo and text aligned in the middle
+    ) {
+        Image(
+            painter = painterResource(id = R.drawable.archery_trainer_logo_foreground), // Replace with your actual drawable resource
+            contentDescription = null,
+            modifier = Modifier.size(64.dp)
+        )
+
+        Spacer(modifier = Modifier.width(16.dp))
+
+        Text(
+            text = "Archery Trainer",
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Bold,
+        )
+    }
+}
+
+@Composable
+fun HtmlLikeLink(
+    onClick: () -> Unit,
+    text: String,
+) {
+    val annotatedString = buildAnnotatedString {
+        val linkAnnotation = LinkAnnotation.Clickable(
+            tag = "policy",
+            linkInteractionListener = { onClick() }
+        )
+
+        withLink(linkAnnotation) {
+            withStyle(
+                style = SpanStyle(
+                    color = Color.Blue,
+                    textDecoration = TextDecoration.Underline
+                )
             ) {
-                Text("View Source on GitHub")
+                append(text)
             }
         }
+    }
+
+    BasicText(text = annotatedString)
+}
+
+@Preview(showBackground = true)
+@Composable
+fun AboutScreenPreview() {
+    ArcheryTrainerTheme {
+        AboutScreenContent(
+            uiState = AboutUiState().copy(
+                versionName = "1.0.17",
+                versionCode = "24",
+                buildDateTime = "2023-10-27 10:00",
+                githubUrl = "https://github.com/liorapps/ArcheryTrainer"
+            ),
+            onOpenDrawer = {}
+        )
     }
 }

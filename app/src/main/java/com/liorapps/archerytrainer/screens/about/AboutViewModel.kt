@@ -6,12 +6,16 @@ import android.os.Build
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import com.liorapps.archerytrainer.BuildConfig
 import com.liorapps.archerytrainer.screens.editsession.EditShootingSessionViewModel
 import com.liorapps.archerytrainer.screens.settings.SettingsRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class AboutViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -29,9 +33,18 @@ class AboutViewModel(application: Application) : AndroidViewModel(application) {
             val versionName = packageInfo.versionName ?: "Unknown"
             val versionCode = packageInfo.longVersionCode.toString()
 
+            val buildTime = BuildConfig.BUILD_TIME  // e.g. 1747137000000L
+            val formattedBuildDateTime = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
+                .format(Date(buildTime))
+            // With the modern API (API 26+)
+//            val instant = Instant.ofEpochMilli(buildTime)
+//                .atZone(ZoneId.systemDefault())
+//                .format(DateTimeFormatter.ofPattern("dd MMM yyyy, HH:mm"))
+
             _uiState.update { AboutUiState(
                 versionName = versionName,
                 versionCode = versionCode,
+                buildDateTime = formattedBuildDateTime,
                 githubUrl = "https://github.com/your-username/TimeShift"
             ) }
         } catch (e: PackageManager.NameNotFoundException) {
@@ -39,6 +52,7 @@ class AboutViewModel(application: Application) : AndroidViewModel(application) {
             _uiState.update { AboutUiState(
                 versionName = "Error",
                 versionCode = "Error",
+                buildDateTime = "Error",
                 githubUrl = "https://github.com/your-username/TimeShift"
             ) }
         }
@@ -60,5 +74,6 @@ class AboutViewModel(application: Application) : AndroidViewModel(application) {
 data class AboutUiState(
     val versionName: String = "",
     val versionCode: String = "",
+    val buildDateTime: String = "",
     val githubUrl: String = ""
 )

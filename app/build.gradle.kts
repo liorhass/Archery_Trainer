@@ -29,15 +29,6 @@ android {
             )
         }
     }
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
-    }
-    buildFeatures {
-        compose = true
-        buildConfig = true
-    }
-
     flavorDimensions += "distribution"
     productFlavors {
         create("personal") {
@@ -48,6 +39,19 @@ android {
         create("public") {
             dimension = "distribution"
         }
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
+    }
+    buildFeatures {
+        compose = true
+        buildConfig = true
+    }
+    defaultConfig {
+        // Get build time so we can display it in the "About" screen
+        buildConfigField("Long", "BUILD_TIME", "${System.currentTimeMillis()}L")
     }
 }
 
