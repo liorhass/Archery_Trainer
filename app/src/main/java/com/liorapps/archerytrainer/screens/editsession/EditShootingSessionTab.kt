@@ -15,20 +15,16 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -37,7 +33,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -54,16 +52,35 @@ import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.util.Locale
+import kotlin.concurrent.atomics.AtomicLong
+import kotlin.concurrent.atomics.ExperimentalAtomicApi
+import kotlin.concurrent.atomics.incrementAndFetch
 import java.time.format.TextStyle as JavaTextStyle
 
+// ── ID generator ──────────────────────────────────────────────────────────────
+@OptIn(ExperimentalAtomicApi::class)
+private val floaterIdCounter = AtomicLong(0L)
 
-
+@OptIn(ExperimentalAtomicApi::class)
 @Composable
 fun EditShootingSessionTab(
     viewModel: EditShootingSessionViewModel,
     uiState: EditShootingSessionState,
     innerPadding: PaddingValues,
 ) {
+    // Collect one-shot events and spawn a floater per event.
+    val activeFloaters = remember { mutableStateListOf<FloatingLabel>() }
+    LaunchedEffect(Unit) {
+        viewModel.moreShotsEvents.collect { nNewShots ->
+            activeFloaters.add(
+                FloatingLabel(
+                    id   = floaterIdCounter.incrementAndFetch(),
+                    text = "+$nNewShots",
+                )
+            )
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -73,7 +90,7 @@ fun EditShootingSessionTab(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         // Arrow and score totals
-        StatsSection(uiState = uiState)
+        StatsSection(uiState = uiState, activeFloaters)
 
         // Add-Set button grid
         AddSetSection(
@@ -136,12 +153,16 @@ private fun SessionCommentSection(comment: String) {
 }
 
 @Composable
-private fun StatsSection(uiState: EditShootingSessionState) {
+private fun StatsSection(
+    uiState: EditShootingSessionState,
+    activeFloaters: SnapshotStateList<FloatingLabel>,
+) {
 //    Card(
 //        modifier = Modifier.fillMaxWidth(),
 //        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
 //    ) {
-        Column(
+
+    Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 12.dp),
@@ -166,8 +187,40 @@ private fun StatsSection(uiState: EditShootingSessionState) {
 //                    text = "Total Score:  ${uiState.totalScore}  Average Score: ${"%.1f".format(uiState.averageScore)}",
 //                    style = MaterialTheme.typography.bodyLarge,
 //                )
+//                Row(
+//                    modifier = Modifier
+//                        .fillMaxWidth()
+//                        .padding(vertical = 0.dp)
+//                ) {
+//                    Text(
+//                        text = "Test",
+//                        modifier = Modifier.weight(40f),
+//                        fontWeight = FontWeight.Bold
+//                    )
+////        Text(
+////            text = col2,
+////            modifier = Modifier.weight(15f),
+////            fontWeight = FontWeight.Normal
+////        )
+//                    ScoreDisplay(
+//                        baseText = "${uiState.sets.size}",
+//                        activeFloaters = activeFloaters,
+//                        modifier = Modifier.weight(15f),
+//                    )
+////                    VerticalSlidingText(
+////                        targetText = col2,
+////                        modifier = Modifier.weight(15f),
+////                        fontWeight = FontWeight.Normal
+////                    )
+//                    Text(
+//                        text = "(${uiState.scoredSets.size} with score)",
+//                        modifier = Modifier.weight(45f),
+//                        fontWeight = FontWeight.Normal
+//                    )
+//                }
+
                 StatSectionRow("Sets:", "${uiState.sets.size}", "(${uiState.scoredSets.size} with score)")
-                StatSectionRow("Shots:", "${uiState.totalArrows}", "(${uiState.totalScoredArrows} with score)")
+                StatSectionRowWithFloaters("Shots:", "${uiState.totalArrows}", "(${uiState.totalScoredArrows} with score)", activeFloaters)
                 if (uiState.hasAnyScore) {
                     StatSectionRow("Total Score:", "${uiState.totalScore}", "")
                     StatSectionRow("Avg. Score:", "%.1f".format(uiState.averageScore), "")
@@ -217,16 +270,49 @@ private fun StatSectionRow(
 //        )
         VerticalSlidingText(
             targetText = col2,
-            modifier = Modifier.weight(15f),
+            modifier = Modifier.weight(20f),
             fontWeight = FontWeight.Normal
         )
         Text(
             text = col3,
-            modifier = Modifier.weight(45f),
+            modifier = Modifier.weight(40f),
             fontWeight = FontWeight.Normal
         )
     }
 }
+
+
+@Composable
+private fun StatSectionRowWithFloaters(
+    col1: String,
+    col2: String,
+    col3: String,
+    activeFloaters: SnapshotStateList<FloatingLabel>,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 0.dp)
+    ) {
+        Text(
+            text = col1,
+            modifier = Modifier.weight(40f),
+            fontWeight = FontWeight.Bold
+        )
+        TextWithFloater(
+            baseText = col2,
+            activeFloaters = activeFloaters,
+            modifier = Modifier.weight(20f),
+        )
+        Text(
+            text = col3,
+            modifier = Modifier.weight(40f),
+            fontWeight = FontWeight.Normal
+        )
+    }
+}
+
+
 
 @Composable
 fun VerticalSlidingText(targetText: String, fontWeight: FontWeight?, modifier: Modifier = Modifier) {

@@ -11,11 +11,13 @@ import com.liorapps.archerytrainer.db.ShootingSessionEntity
 import com.liorapps.archerytrainer.db.ShootingSetEntity
 import com.liorapps.archerytrainer.db.ShootingSetWithSession
 import com.liorapps.archerytrainer.screens.settings.SettingsRepository
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -39,12 +41,10 @@ class EditShootingSessionViewModel (
     private val shootingSetDao = db.shootingSetDao()
     val settingsFlow: StateFlow<SettingsRepository.Settings> = settingsRepo.settingsFlow
         .stateIn(viewModelScope, SharingStarted.Lazily, SettingsRepository.Settings())
-
     private val _uiStateFlow = MutableStateFlow(
         EditShootingSessionState( sessionId = sessionId )
     )
-
-    val uiState: StateFlow<EditShootingSessionState> =
+    val uiStateFlow: StateFlow<EditShootingSessionState> =
         combine(_uiStateFlow, settingsFlow) { uiState, settings ->
             uiState.copy(shootingSetsHaveScore = settings.shootingSetsHaveScores)
         }.stateIn(
@@ -53,7 +53,13 @@ class EditShootingSessionViewModel (
             initialValue = EditShootingSessionState(sessionId = sessionId)
         )
 
-//    val uiState: StateFlow<EditShootingSessionState> = _uiState.asStateFlow()
+    // One-shot delta events (fired whenever the user adds a new set)
+    // A Channel (not StateFlow) is used here intentionally:
+    //   • Each send() produces exactly one event even under rapid increments.
+    //   • Late collectors don't replay old events.
+    //   • BUFFERED capacity means fast senders never block the ViewModel.
+    private val _moreShotsEventChannel = Channel<Int>(Channel.BUFFERED)
+    val moreShotsEvents = _moreShotsEventChannel.receiveAsFlow()
 
     init {
         loadButtonValues()
@@ -145,6 +151,7 @@ class EditShootingSessionViewModel (
         // session is not created until the first set is created
         val sessionId = ensureSessionCreated()
 //        Timber.d("addSet() sessionId=$sessionId")
+        _moreShotsEventChannel.send(arrowCount)   // fires an event for the floater "+N"
         shootingSetDao.insertShootingSet(
             ShootingSetEntity(
                 shootingSessionId = sessionId,
@@ -153,6 +160,25 @@ class EditShootingSessionViewModel (
                 score = score,
             )
         )
+    }
+
+    // Enter-Score dialog
+    fun onScoreDraftChanged(value: String) {
+        _uiStateFlow.update { it.copy(scoreDraft = value) }
+    }
+    fun onScoreConfirmed() {
+        val score = _uiStateFlow.value.scoreDraft
+            .toIntOrNull()?.takeIf { it in 0..999 } ?: return
+        val arrowCount = _uiStateFlow.value.pendingArrowCount ?: return
+        _uiStateFlow.update {
+            it.copy(showScoreDialog = false, pendingArrowCount = null, scoreDraft = "")  // Close the dialog
+        }
+        viewModelScope.launch { addSet(arrowCount, score) }
+    }
+    fun onScoreDismissed() {
+        _uiStateFlow.update {
+            it.copy(showScoreDialog = false, pendingArrowCount = null, scoreDraft = "")
+        }
     }
 
     // Edit-Comment dialog
@@ -200,27 +226,6 @@ class EditShootingSessionViewModel (
 
     fun onCommentDismissed() {
         _uiStateFlow.update { it.copy(showEditCommentDialog = false) }
-    }
-
-    // Enter-Score dialog
-    fun onScoreDraftChanged(value: String) {
-        _uiStateFlow.update { it.copy(scoreDraft = value) }
-    }
-
-    fun onScoreConfirmed() {
-        val score = _uiStateFlow.value.scoreDraft
-            .toIntOrNull()?.takeIf { it in 0..999 } ?: return
-        val arrowCount = _uiStateFlow.value.pendingArrowCount ?: return
-        _uiStateFlow.update {
-            it.copy(showScoreDialog = false, pendingArrowCount = null, scoreDraft = "")
-        }
-        viewModelScope.launch { addSet(arrowCount, score) }
-    }
-
-    fun onScoreDismissed() {
-        _uiStateFlow.update {
-            it.copy(showScoreDialog = false, pendingArrowCount = null, scoreDraft = "")
-        }
     }
 
     // Edit-Button-Value dialog
@@ -293,7 +298,6 @@ class EditShootingSessionViewModel (
             shootingSetDao.deleteShootingSetById(set.id)
         }
     }
-
 
     class Factory(
         private val sessionId: Long,
