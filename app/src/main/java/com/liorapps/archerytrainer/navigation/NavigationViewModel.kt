@@ -12,7 +12,7 @@ import com.liorapps.archerytrainer.screens.video.logic.DelayedVideoViewModel
 class NavigationViewModel(/*val backStack: NavBackStack<ATNavKey>*/) : ViewModel() {
 
 //    val backStack = mutableStateListOf<ATNavKey>(ATNavKey.DelayedVideo)
-    val backStack = NavBackStack<ATNavKey>(ATNavKey.DelayedVideo)
+    val backStack = NavBackStack<ATNavKey>(ATNavKey.ShootingSessionList)
 
     fun navigateTo(key: ATNavKey) {
         backStack.add(key)

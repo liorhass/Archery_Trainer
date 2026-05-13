@@ -93,17 +93,6 @@ fun ArcheryTrainerNavHost(/*navigationViewModel: NavigationViewModel*/) {
                 entryDecorators  = listOf(saveableStateHolderNavEntryDecorator, viewModelStoreDecorator),
                 entryProvider = { key: ATNavKey ->
                     when (key) {
-                        is ATNavKey.DelayedVideo -> NavEntry(key) {
-                            val viewModel: DelayedVideoViewModel = viewModel(
-                                factory = DelayedVideoViewModel.Factory(app, app.settingsRepository)
-                            )
-                            DelayedVideoShellScreen(
-                                viewModel = viewModel,
-                                onNavigateToSettings = { navigationViewModel.navigateTo(ATNavKey.Settings) },
-                                onOpenDrawer = { scope.launch { drawerState.open() } }
-                            )
-                        }
-
                         is ATNavKey.ShootingSessionList -> NavEntry(key) {
                             val viewModel: ShootingSessionListViewModel = viewModel(
                                 factory = ShootingSessionListViewModel.Factory(app)
@@ -111,6 +100,17 @@ fun ArcheryTrainerNavHost(/*navigationViewModel: NavigationViewModel*/) {
                             ShootingSessionListScreen (
                                 viewModel = viewModel,
                                 navigateTo = { navKey: ATNavKey -> navigationViewModel.navigateTo(navKey) },
+                                onOpenDrawer = { scope.launch { drawerState.open() } }
+                            )
+                        }
+
+                        is ATNavKey.DelayedVideo -> NavEntry(key) {
+                            val viewModel: DelayedVideoViewModel = viewModel(
+                                factory = DelayedVideoViewModel.Factory(app, app.settingsRepository)
+                            )
+                            DelayedVideoShellScreen(
+                                viewModel = viewModel,
+                                onNavigateToSettings = { navigationViewModel.navigateTo(ATNavKey.Settings) },
                                 onOpenDrawer = { scope.launch { drawerState.open() } }
                             )
                         }
@@ -191,7 +191,7 @@ fun AppDrawerContent(
 ) {
     ModalDrawerSheet {
         Text(
-            text = "My App Title",
+            text = "Archery Trainer",
             modifier = Modifier.Companion.padding(horizontal = 28.dp, vertical = 24.dp),
             style = MaterialTheme.typography.titleLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -200,17 +200,17 @@ fun AppDrawerContent(
         Spacer(Modifier.Companion.height(8.dp))
 
         StandardDrawerItem(
-            label = "Delayed Video",
-            icon = Icons.Default.VideoCameraFront,
-            selected = currentRoute == ATNavKey.DelayedVideo,
-            onClick = { onNavigate(ATNavKey.DelayedVideo) }
-        )
-
-        StandardDrawerItem(
             label = "Shooting Sessions",
             icon = Icons.Default.Storage,
             selected = currentRoute == ATNavKey.ShootingSessionList,
             onClick = { onNavigate(ATNavKey.ShootingSessionList) }
+        )
+
+        StandardDrawerItem(
+            label = "Delayed Video",
+            icon = Icons.Default.VideoCameraFront,
+            selected = currentRoute == ATNavKey.DelayedVideo,
+            onClick = { onNavigate(ATNavKey.DelayedVideo) }
         )
 
         HorizontalDivider(
@@ -226,31 +226,6 @@ fun AppDrawerContent(
             onClick = { onNavigate(ATNavKey.Settings) }
         )
 
-        StandardDrawerItem(
-            label = "Home",
-            icon = Icons.Default.Home,
-            selected = false,
-            onClick = { }
-        )
-        StandardDrawerItem(
-            label = "Profile",
-            icon = Icons.Default.Person,
-            selected = false,
-            onClick = { }
-        )
-
-        HorizontalDivider(
-            modifier = Modifier.Companion.padding(vertical = 12.dp, horizontal = 28.dp),
-            thickness = 1.dp,
-            color = MaterialTheme.colorScheme.outlineVariant
-        )
-
-        StandardDrawerItem(
-            label = "Settings",
-            icon = Icons.Default.Settings,
-            selected = false,
-            onClick = { }
-        )
         StandardDrawerItem(
             label = "About",
             icon = Icons.Default.Info,

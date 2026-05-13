@@ -30,6 +30,7 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -112,7 +113,7 @@ private fun SettingsSection(
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState()),
         ) {
-            // ---- Section 1 ----------------------------------------------
+            // ---- Video ----------------------------------------------
             SettingsSectionHeader(title = "Video")
 
             SettingsStringItem(
@@ -134,8 +135,8 @@ private fun SettingsSection(
                 onClick = { openDialog = DialogType.VIDEO_RESOLUTION },
             )
 
-            // ---- Section 2 ----------------------------------------------
-            SettingsSectionHeader(title = "Section-2")
+            // ---- Shooting Sessions ----------------------------------------------
+            SettingsSectionHeader(title = "Shooting Sessions")
 
             SettingsBooleanItem(
                 title = "Give Sets Scores",
@@ -151,11 +152,11 @@ private fun SettingsSection(
             )
 //            HorizontalDivider(modifier = Modifier.padding(start = 16.dp))
 
-            SettingsStringItem(
-                title = "Dummy Float",
-                value = "%.2f".format(settings.dummyFloat),
-                onClick = { openDialog = DialogType.PARAM_D },
-            )
+//            SettingsStringItem(
+//                title = "Dummy Float",
+//                value = "%.2f".format(settings.dummyFloat),
+//                onClick = { openDialog = DialogType.PARAM_D },
+//            )
         }
     }
 
@@ -257,14 +258,14 @@ fun SettingsBooleanItem(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        Checkbox(
+//        Checkbox(
+//            checked = checked,
+//            onCheckedChange = null // null because the Row handles the click logic
+//        )
+        Switch(
             checked = checked,
             onCheckedChange = null // null because the Row handles the click logic
         )
-//        Switch(
-//            checked = checked,
-//            onCheckedChange = null
-//        )
     }
 }
 

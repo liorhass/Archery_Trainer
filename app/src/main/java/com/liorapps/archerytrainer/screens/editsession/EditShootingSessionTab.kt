@@ -1,5 +1,12 @@
 package com.liorapps.archerytrainer.screens.editsession
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -35,6 +42,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -47,41 +56,6 @@ import java.time.ZoneId
 import java.util.Locale
 import java.time.format.TextStyle as JavaTextStyle
 
-
-@Composable
-fun EditShootingSessionTabDialogs( //  Dialogs (rendered above the Scaffold)
-    viewModel: EditShootingSessionViewModel,
-    uiState: EditShootingSessionState,
-) {
-    if (uiState.showEditCommentDialog) {
-        EditCommentDialog(
-            draft = uiState.commentDraft,
-            onDraftChanged = viewModel::onCommentDraftChanged,
-            onConfirm = viewModel::onCommentConfirmed,
-            onDismiss = viewModel::onCommentDismissed,
-        )
-    }
-
-    if (uiState.showScoreDialog) {
-        EnterScoreDialog(
-            draft = uiState.scoreDraft,
-            isValid = uiState.isScoreInputValid,
-            onDraftChanged = viewModel::onScoreDraftChanged,
-            onConfirm = viewModel::onScoreConfirmed,
-            onDismiss = viewModel::onScoreDismissed,
-        )
-    }
-
-    if (uiState.showEditButtonDialog) {
-        EditButtonValueDialog(
-            draft = uiState.buttonValueDraft,
-            isValid = uiState.isButtonValueInputValid,
-            onDraftChanged = viewModel::onButtonValueDraftChanged,
-            onConfirm = viewModel::onButtonValueConfirmed,
-            onDismiss = viewModel::onButtonValueDismissed,
-        )
-    }
-}
 
 
 @Composable
@@ -236,8 +210,13 @@ private fun StatSectionRow(
             modifier = Modifier.weight(40f),
             fontWeight = FontWeight.Bold
         )
-        Text(
-            text = col2,
+//        Text(
+//            text = col2,
+//            modifier = Modifier.weight(15f),
+//            fontWeight = FontWeight.Normal
+//        )
+        VerticalSlidingText(
+            targetText = col2,
             modifier = Modifier.weight(15f),
             fontWeight = FontWeight.Normal
         )
@@ -246,6 +225,39 @@ private fun StatSectionRow(
             modifier = Modifier.weight(45f),
             fontWeight = FontWeight.Normal
         )
+    }
+}
+
+@Composable
+fun VerticalSlidingText(targetText: String, fontWeight: FontWeight?, modifier: Modifier = Modifier) {
+    AnimatedContent(
+        targetState = targetText,
+        modifier = modifier,
+        transitionSpec = {
+            // Increase durationMillis to slow down the animation (e.g., 1000ms = 1 second)
+            val duration = 700
+
+            // New text slides in from the bottom
+//            val enterTransition = slideInVertically { height -> height } + fadeIn()
+            val enterTransition = slideInVertically(
+                animationSpec = tween(durationMillis = duration)
+            ) { height -> height } + fadeIn(
+                animationSpec = tween(durationMillis = duration)
+            )
+
+            // Old text slides out towards the top
+//            val exitTransition = slideOutVertically { height -> -height } + fadeOut()
+            val exitTransition = slideOutVertically(
+                animationSpec = tween(durationMillis = duration)
+            ) { height -> -height } + fadeOut(
+                animationSpec = tween(durationMillis = duration)
+            )
+
+            enterTransition togetherWith exitTransition
+        },
+        label = "TextSlideAnimation"
+    ) { text ->
+        Text(text = text, fontWeight = fontWeight, modifier = modifier)
     }
 }
 
@@ -318,11 +330,16 @@ private fun SetButton(
     onTap: () -> Unit,
     onLongPress: () -> Unit,
 ) {
+    val haptics = LocalHapticFeedback.current
+
     Surface(
         modifier = modifier
             .aspectRatio(1f)
             .combinedClickable(
-                onClick = onTap,
+                onClick = {
+                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    onTap()
+                },
                 onLongClick = onLongPress,
             ),
         shape = MaterialTheme.shapes.medium,
@@ -346,6 +363,41 @@ private fun SetButton(
 // ─────────────────────────────────────────────────────────────────────────────
 // Dialogs
 // ─────────────────────────────────────────────────────────────────────────────
+
+@Composable
+fun EditShootingSessionTabDialogs( //  Dialogs (rendered above the Scaffold)
+    viewModel: EditShootingSessionViewModel,
+    uiState: EditShootingSessionState,
+) {
+    if (uiState.showEditCommentDialog) {
+        EditCommentDialog(
+            draft = uiState.commentDraft,
+            onDraftChanged = viewModel::onCommentDraftChanged,
+            onConfirm = viewModel::onCommentConfirmed,
+            onDismiss = viewModel::onCommentDismissed,
+        )
+    }
+
+    if (uiState.showScoreDialog) {
+        EnterScoreDialog(
+            draft = uiState.scoreDraft,
+            isValid = uiState.isScoreInputValid,
+            onDraftChanged = viewModel::onScoreDraftChanged,
+            onConfirm = viewModel::onScoreConfirmed,
+            onDismiss = viewModel::onScoreDismissed,
+        )
+    }
+
+    if (uiState.showEditButtonDialog) {
+        EditButtonValueDialog(
+            draft = uiState.buttonValueDraft,
+            isValid = uiState.isButtonValueInputValid,
+            onDraftChanged = viewModel::onButtonValueDraftChanged,
+            onConfirm = viewModel::onButtonValueConfirmed,
+            onDismiss = viewModel::onButtonValueDismissed,
+        )
+    }
+}
 
 /** Dialog for editing the optional session description / comment. */
 @Composable
