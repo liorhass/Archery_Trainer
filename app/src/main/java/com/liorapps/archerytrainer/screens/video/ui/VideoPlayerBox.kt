@@ -42,6 +42,8 @@ fun VideoPlayerBox(
     videoResolution:  ArcheryTrainerDefaults.VideoResolution,
     isLandscape: Boolean,
     isPlaying: Boolean,
+    bufferingTime: Int,
+    onBufferingTimeTerminated: () -> Unit,
     delaySec: Int,
     onSurfaceReady: (Surface) -> Unit,
     onSurfaceDestroyed: () -> Unit,
@@ -129,6 +131,13 @@ fun VideoPlayerBox(
                     onDelayChange = onVideoDelayChange,
                 )
             }
+        }
+        if (bufferingTime > 0) {
+            BufferingCountdown(
+                durationSeconds = bufferingTime,
+                isBufferingDone = false,
+                onBufferingTimeTerminated = onBufferingTimeTerminated,
+            )
         }
 
 
@@ -297,13 +306,15 @@ fun Modifier.visible(visible: Boolean): Modifier =
 
 @Preview(showBackground = true, widthDp = 800, heightDp = 480)
 @Composable
-fun ArcheryPlayerBoxLandscapePreview() {
+fun VideoPlayerBoxPreview() {
     ArcheryTrainerTheme {
         VideoPlayerBox(
             innerPadding = PaddingValues(0.dp),
             videoResolution = ArcheryTrainerDefaults.VideoResolution.HD_1280x720(),
             isLandscape = true,
             isPlaying = true,
+            bufferingTime = 22,
+            onBufferingTimeTerminated = {},
             delaySec = 5,
             onSurfaceReady = {},
             onSurfaceDestroyed = {},
@@ -315,20 +326,23 @@ fun ArcheryPlayerBoxLandscapePreview() {
             onSingleFrameForward = {},
             onSingleFrameBackward = {},
             onSurfaceTouched = {},
-            onHorizontalDrag = {},            dragSensitivityPx = 40f,
-            )
+            onHorizontalDrag = {},
+            dragSensitivityPx = 40f,
+        )
     }
 }
 
 @Preview(showBackground = true, widthDp = 360, heightDp = 640)
 @Composable
-fun ArcheryPlayerBoxPortraitPreview() {
+fun VideoPlayerBoxPreview1() {
     ArcheryTrainerTheme {
         VideoPlayerBox(
             innerPadding = PaddingValues(0.dp),
             videoResolution = ArcheryTrainerDefaults.VideoResolution.HD_1280x720(),
             isLandscape = false,
             isPlaying = false,
+            bufferingTime = 22,
+            onBufferingTimeTerminated = {},
             delaySec = 10,
             onSurfaceReady = {},
             onSurfaceDestroyed = {},

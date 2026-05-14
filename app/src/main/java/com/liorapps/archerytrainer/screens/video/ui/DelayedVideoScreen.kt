@@ -17,7 +17,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.liorapps.archerytrainer.screens.video.logic.DelayedVideoViewModel
 
@@ -53,6 +52,7 @@ fun DelayedVideoScreen(
     val videoResolution by viewModel.videoResolution.collectAsStateWithLifecycle()
     val settings by viewModel.settingsFlow.collectAsStateWithLifecycle()
     val isFullScreen by viewModel.isFullScreen.collectAsStateWithLifecycle()
+    val bufferingTime by viewModel.bufferingTime.collectAsStateWithLifecycle()
     val singleFrameSliderPosition by viewModel.singleFrameSliderPositionFlow.collectAsStateWithLifecycle()
     val horizontalDragSensitivity = viewModel.horizontalDragSensitivity
 
@@ -82,6 +82,7 @@ fun DelayedVideoScreen(
                 videoResolution = videoResolution,
                 isLandscape = isLandscape,
                 isPlaying = viewModel.playbackState == DelayedVideoViewModel.PlaybackState.PLAYING,
+                bufferingTime = bufferingTime,
                 delaySec = settings.delaySec,
                 onSurfaceReady = viewModel::onSurfaceReady,
                 onSurfaceDestroyed = viewModel::onSurfaceDestroyed,
@@ -95,6 +96,7 @@ fun DelayedVideoScreen(
                 onSurfaceTouched = viewModel::onVideoSurfaceTouched,
                 onHorizontalDrag = viewModel::onHorizontalDragOverVideo,
                 dragSensitivityPx = horizontalDragSensitivity,
+                onBufferingTimeTerminated = viewModel::onBufferingCountdownTerminated,
             )
         } else { // Not at full screen
             Scaffold(
@@ -111,6 +113,7 @@ fun DelayedVideoScreen(
                     videoResolution = videoResolution,
                     isLandscape = isLandscape,
                     isPlaying = viewModel.playbackState == DelayedVideoViewModel.PlaybackState.PLAYING,
+                    bufferingTime = bufferingTime,
                     delaySec = settings.delaySec,
                     onSurfaceReady = viewModel::onSurfaceReady,
                     onSurfaceDestroyed = viewModel::onSurfaceDestroyed,
@@ -124,6 +127,7 @@ fun DelayedVideoScreen(
                     onSurfaceTouched = viewModel::onVideoSurfaceTouched,
                     onHorizontalDrag = viewModel::onHorizontalDragOverVideo,
                     dragSensitivityPx = horizontalDragSensitivity,
+                    onBufferingTimeTerminated = viewModel::onBufferingCountdownTerminated,
                 )
             }
         }

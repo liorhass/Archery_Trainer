@@ -7,7 +7,6 @@ import androidx.annotation.RequiresPermission
 import androidx.camera.core.CameraSelector
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
@@ -16,7 +15,6 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.liorapps.archerytrainer.ArcheryTrainerDefaults
 import com.liorapps.archerytrainer.screens.settings.SettingsRepository
-import com.liorapps.archerytrainer.navigation.ATNavKey
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.Dispatchers
@@ -71,8 +69,6 @@ class DelayedVideoViewModel(application: Application, val settingsRepo: Settings
     // ─────────────────────────────────────────────────────────────────────────
     // TODO LH: convert all of these to StateFlow (like cameraPermissionState)
 
-    val backStack = mutableStateListOf<ATNavKey>(ATNavKey.DelayedVideo)
-
     // Camera Selector State
     var selectedCamera by mutableStateOf(CameraSelector.DEFAULT_BACK_CAMERA)
         private set
@@ -80,6 +76,10 @@ class DelayedVideoViewModel(application: Application, val settingsRepo: Settings
     /** Whether the pipeline is currently running. Drives the Play/Pause button label. */
     var playbackState: PlaybackState by mutableStateOf(PlaybackState.PAUSED)
         private set
+
+    /** Whether a "Buffering" countdown indicator should be displayed, and for how long (0 - don't display) */
+    private val _isBuffering = MutableStateFlow(0)
+    val bufferingTime = _isBuffering.asStateFlow()
 
 //    /**
 //     * User-selected delay in seconds. Readable from [Dispatchers.IO] via the lambda passed
@@ -216,6 +216,7 @@ class DelayedVideoViewModel(application: Application, val settingsRepo: Settings
                     singleFrameDisplayer.release()
                     ringBuffer.reset()
                     startPipeline()
+                    _isBuffering.update { settingsFlow.value.delaySec } // Start the on screen "buffering" countdown
                 }
 
                 PlaybackState.PLAYING -> {
@@ -558,6 +559,10 @@ class DelayedVideoViewModel(application: Application, val settingsRepo: Settings
                 targetFrameIndex.toFloat() / ringBuffer.count.toFloat()
             }
         }
+    }
+
+    fun onBufferingCountdownTerminated() {
+        _isBuffering.update { 0 }
     }
 
     class Factory(
