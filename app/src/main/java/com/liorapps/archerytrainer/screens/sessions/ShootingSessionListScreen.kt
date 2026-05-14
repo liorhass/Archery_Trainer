@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -51,8 +52,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.liorapps.archerytrainer.db.ShootingSessionEntity
 import com.liorapps.archerytrainer.db.ShootingSessionWithStats
 import com.liorapps.archerytrainer.navigation.ATNavKey
 import com.liorapps.archerytrainer.screens.util.ConfirmationDialog
@@ -247,7 +250,13 @@ private fun SessionCard(
             horizontalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             ShotCountBadge(count = session.totalShots)
-            SessionInfo(session = session, modifier = Modifier.weight(1f))
+            SessionInfo(
+                session = session,
+                modifier = Modifier
+                    .weight(1f)
+                    .align(Alignment.Top)
+                    .padding(top = 6.dp)
+            )
         }
     }
 }
@@ -290,18 +299,18 @@ private fun SessionInfo(session: ShootingSessionWithStats, modifier: Modifier = 
 
     Column(
         modifier            = modifier,
-        verticalArrangement = Arrangement.spacedBy(2.dp)
+        verticalArrangement = Arrangement.Top
     ) {
         Text(
-            text       = dateText,
+            text       = "$dateText $timeText",
             style      = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.SemiBold
         )
-        Text(
-            text  = timeText,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+//        Text(
+//            text  = timeText,
+//            style = MaterialTheme.typography.bodyMedium,
+//            color = MaterialTheme.colorScheme.onSurfaceVariant
+//        )
         if (session.comment.isNotBlank()) {
             Spacer(modifier = Modifier.height(4.dp))
             Text(
@@ -375,3 +384,31 @@ private fun ShootingSessionListTopBar(
     )
 }
 
+@Preview()
+@Composable
+private fun SwipeableSessionCardPreview1(
+) {
+    SessionCard(
+        session = ShootingSessionWithStats(
+            id = 1L,
+            dateTimeUtc = 222222222L,
+            comment = "zzz ejh fjhe eh j hjeh je\nehr jehjh ue iehr \n iher uhwe uf ewu",
+            totalShots = 122
+        ),
+        onClick = {},
+    )
+}
+@Preview()
+@Composable
+private fun SwipeableSessionCardPreview2(
+) {
+    SessionCard(
+        session = ShootingSessionWithStats(
+            id = 1L,
+            dateTimeUtc = 222222222L,
+            comment = "",
+            totalShots = 122
+        ),
+        onClick = {},
+    )
+}

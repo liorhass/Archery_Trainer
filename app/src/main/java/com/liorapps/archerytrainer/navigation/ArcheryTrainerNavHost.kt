@@ -1,6 +1,16 @@
 package com.liorapps.archerytrainer.navigation
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.ContentTransform
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.shrinkOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -48,6 +58,7 @@ import com.liorapps.archerytrainer.screens.video.logic.DelayedVideoViewModel
 import com.liorapps.archerytrainer.screens.video.ui.DelayedVideoShellScreen
 import kotlinx.coroutines.launch
 
+const val NAVIGATION_ANIMATION_DELAY = 500  // In mSec
 @Composable
 fun ArcheryTrainerNavHost(/*navigationViewModel: NavigationViewModel*/) {
 
@@ -91,6 +102,30 @@ fun ArcheryTrainerNavHost(/*navigationViewModel: NavigationViewModel*/) {
                 backStack = navigationViewModel.backStack,
                 onBack = { navigationViewModel.navigateBack() },
                 entryDecorators  = listOf(saveableStateHolderNavEntryDecorator, viewModelStoreDecorator),
+                transitionSpec = {
+//                    ContentTransform(
+//                        targetContentEnter = scaleIn(initialScale = 0.9f) + fadeIn(),
+//                        initialContentExit = scaleOut(targetScale = 1.1f) + fadeOut()
+//                    )
+                    slideInHorizontally(animationSpec = tween(durationMillis = NAVIGATION_ANIMATION_DELAY)) { it } + fadeIn() togetherWith
+                            slideOutHorizontally(animationSpec = tween(durationMillis = NAVIGATION_ANIMATION_DELAY)) { -it } + fadeOut()
+                },
+                popTransitionSpec = {
+//                    ContentTransform(
+//                        targetContentEnter = scaleIn(initialScale = 1.1f) + fadeIn(),
+//                        initialContentExit = scaleOut(targetScale = 0.9f) + fadeOut()
+//                    )
+                    slideInHorizontally(animationSpec = tween(durationMillis = NAVIGATION_ANIMATION_DELAY)) { -it } + fadeIn() togetherWith
+                            slideOutHorizontally(animationSpec = tween(durationMillis = NAVIGATION_ANIMATION_DELAY)) { it } + fadeOut()
+                },
+                predictivePopTransitionSpec = {
+//                    ContentTransform(
+//                        targetContentEnter = scaleIn(initialScale = 1.1f) + fadeIn(),
+//                        initialContentExit = scaleOut(targetScale = 0.9f) + fadeOut()
+//                    )
+                    slideInHorizontally(animationSpec = tween(durationMillis = NAVIGATION_ANIMATION_DELAY)) { -it } + fadeIn() togetherWith
+                            slideOutHorizontally(animationSpec = tween(durationMillis = NAVIGATION_ANIMATION_DELAY)) { it } + fadeOut()
+                },
                 entryProvider = { key: ATNavKey ->
                     when (key) {
                         is ATNavKey.ShootingSessionList -> NavEntry(key) {
@@ -146,7 +181,7 @@ fun ArcheryTrainerNavHost(/*navigationViewModel: NavigationViewModel*/) {
                             )
                             AboutScreen(
                                 viewModel = viewModel,
-                                onOpenDrawer = { scope.launch { drawerState.open() } },
+                                onNavigateBack = { navigationViewModel.navigateBack() },
                             )
                         }
 

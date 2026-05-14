@@ -5,6 +5,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.*
 import androidx.compose.material3.MaterialTheme
@@ -22,20 +23,22 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withLink
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import com.liorapps.archerytrainer.ui.theme.ArcheryTrainerTheme
 import com.liorapps.archerytrainer.R
+import com.liorapps.archerytrainer.ui.theme.AppTheme
 
 @Composable
 fun AboutScreen(
     viewModel: AboutViewModel,
-    onOpenDrawer: () -> Unit
+    onNavigateBack: () -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsState()
     AboutScreenContent(
         uiState = uiState,
-        onOpenDrawer = onOpenDrawer
+        onNavigateBack = onNavigateBack
     )
 }
 
@@ -43,7 +46,7 @@ fun AboutScreen(
 @Composable
 fun AboutScreenContent(
     uiState: AboutUiState,
-    onOpenDrawer: () -> Unit
+    onNavigateBack: () -> Unit
 ) {
     val context = LocalContext.current
 
@@ -52,9 +55,9 @@ fun AboutScreenContent(
             TopAppBar(
                 title = { Text("About") },
                 navigationIcon = {
-                    IconButton(onClick = onOpenDrawer) {
+                    IconButton(onClick = onNavigateBack) {
                         Icon(
-                            imageVector = Icons.Default.Menu,
+                            imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
                             contentDescription = "Open Navigation Drawer"
                         )
                     }
@@ -90,7 +93,7 @@ fun AboutScreenContent(
             Spacer(modifier = Modifier.height(32.dp))
 
             Text(
-                text = "Version ${uiState.versionName} (${uiState.versionCode})    ${uiState.buildDateTime}",
+                text = "Version ${uiState.versionName} (${uiState.versionCode})\n${uiState.buildDateTime}",
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -157,7 +160,7 @@ fun HtmlLikeLink(
         withLink(linkAnnotation) {
             withStyle(
                 style = SpanStyle(
-                    color = Color.Blue,
+                    color = AppTheme.colors.webLink,
                     textDecoration = TextDecoration.Underline
                 )
             ) {
@@ -169,18 +172,18 @@ fun HtmlLikeLink(
     BasicText(text = annotatedString)
 }
 
-@Preview(showBackground = true)
+@PreviewLightDark()
 @Composable
 fun AboutScreenPreview() {
-    ArcheryTrainerTheme {
+    ArcheryTrainerTheme() {
         AboutScreenContent(
             uiState = AboutUiState().copy(
-                versionName = "1.0.17",
+                versionName = "1.0.17-personal",
                 versionCode = "24",
                 buildDateTime = "2023-10-27 10:00",
                 githubUrl = "https://github.com/liorapps/ArcheryTrainer"
             ),
-            onOpenDrawer = {}
+            onNavigateBack = {}
         )
     }
 }

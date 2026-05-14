@@ -1,26 +1,22 @@
 package com.liorapps.archerytrainer.navigation
 
-import android.app.Application
-import androidx.compose.runtime.mutableStateListOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.navigation3.runtime.NavBackStack
-import androidx.navigation3.runtime.NavKey
-import com.liorapps.archerytrainer.screens.settings.SettingsRepository
-import com.liorapps.archerytrainer.screens.video.logic.DelayedVideoViewModel
+import timber.log.Timber
 
 class NavigationViewModel(/*val backStack: NavBackStack<ATNavKey>*/) : ViewModel() {
 
-//    val backStack = mutableStateListOf<ATNavKey>(ATNavKey.DelayedVideo)
     val backStack = NavBackStack<ATNavKey>(ATNavKey.ShootingSessionList)
 
     fun navigateTo(key: ATNavKey) {
+        Timber.d("#### navigateTo() keyClassName=${key.javaClass.name}")
         backStack.add(key)
     }
 
     fun navigateBack() {
+        Timber.d("#### navigateBack()")
         when {
-//            _isFullScreen.value -> setIsFullScreen(false)
             backStack.size > 1  -> backStack.removeLastOrNull()
         }
     }

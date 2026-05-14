@@ -73,6 +73,7 @@ data class CustomColors(
     val singleFrameSliderThumb: Color,
     val singleFrameSliderThumbHighlight: Color,
     val singleFrameSliderThumbGlow: Color,
+    val webLink: Color,
 )
 val LocalCustomColors = staticCompositionLocalOf {
     CustomColors(
@@ -86,6 +87,7 @@ val LocalCustomColors = staticCompositionLocalOf {
         singleFrameSliderThumb = Color.Unspecified,
         singleFrameSliderThumbHighlight = Color.Unspecified,
         singleFrameSliderThumbGlow = Color.Unspecified,
+        webLink = Color.Unspecified,
     )
 }
 private val LightCustomColors = CustomColors(
@@ -99,6 +101,7 @@ private val LightCustomColors = CustomColors(
     singleFrameSliderThumb = Color(0xFFFF3B30),
     singleFrameSliderThumbHighlight = Color(0xFFFF7A73),
     singleFrameSliderThumbGlow = Color(0x44FF3B30),
+    webLink = Color(0xFF003090),
 )
 private val DarkCustomColors = CustomColors(
     success = Color(0xFF81C784),
@@ -111,6 +114,7 @@ private val DarkCustomColors = CustomColors(
     singleFrameSliderThumb = Color(0xFFFF3B30),
     singleFrameSliderThumbHighlight = Color(0xFFFF7A73),
     singleFrameSliderThumbGlow = Color(0x44FF3B30),
+    webLink = Color(0xFF4060FF),
 )
 
 @Composable
