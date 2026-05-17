@@ -31,6 +31,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.keepScreenOn
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.liorapps.archerytrainer.ArcheryTrainerDefaults
@@ -56,12 +57,13 @@ fun VideoPlayerBox(
     onSingleFrameBackward: () -> Unit,
     onSurfaceTouched: (x: Float) -> Unit,
     onHorizontalDrag: (deltaX: Float) -> Unit,
-    dragSensitivityPx: Float, // e.g. 40f
+    dragSensitivityPx: Float, // How large (in pixels) a drag needs to be to move one frame. e.g. 40f
 ) {
     Box(
         modifier = Modifier
             .fillMaxSize()
             .padding(innerPadding)
+            .keepScreenOn()
     ) {
         VideoPlayer(
             videoResolution = videoResolution,

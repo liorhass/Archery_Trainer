@@ -53,6 +53,7 @@ fun VideoPlayer(
             computeScreenRotation(context)
         }
 
+        // Calculate the video's Surface width and height modifiers
         // Recompute whenever the video dimensions or the available box size change
         // maxWidth and max Height come from BoxWithConstraints
         val surfaceModifier = remember(videoResolution, maxWidth, maxHeight) {
@@ -78,7 +79,7 @@ fun VideoPlayer(
                 }
             } else {
                 // Dimensions not yet known — fill the box as a safe default.
-                Timber.d("#######C fillMaxSize()")
+//                Timber.d("#######C fillMaxSize()")
                 Modifier.fillMaxSize()
             }
         }

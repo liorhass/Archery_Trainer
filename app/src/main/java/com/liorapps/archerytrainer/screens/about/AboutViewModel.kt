@@ -17,6 +17,8 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+const val APP_GITHUB_URL = "https://github.com/liorhass/Archery_Trainer"
+
 class AboutViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _uiState = MutableStateFlow(AboutUiState())
@@ -45,7 +47,7 @@ class AboutViewModel(application: Application) : AndroidViewModel(application) {
                 versionName = versionName,
                 versionCode = versionCode,
                 buildDateTime = formattedBuildDateTime,
-                githubUrl = "https://github.com/your-username/TimeShift"
+                githubUrl = APP_GITHUB_URL
             ) }
         } catch (e: PackageManager.NameNotFoundException) {
             // Fallback state if package info cannot be retrieved
@@ -53,7 +55,7 @@ class AboutViewModel(application: Application) : AndroidViewModel(application) {
                 versionName = "Error",
                 versionCode = "Error",
                 buildDateTime = "Error",
-                githubUrl = "https://github.com/your-username/TimeShift"
+                githubUrl = APP_GITHUB_URL
             ) }
         }
     }

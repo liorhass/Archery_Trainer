@@ -11,13 +11,24 @@ class NavigationViewModel(/*val backStack: NavBackStack<ATNavKey>*/) : ViewModel
 
     fun navigateTo(key: ATNavKey) {
         Timber.d("#### navigateTo() keyClassName=${key.javaClass.name}")
-        backStack.add(key)
+//        backStack.add(key)
+        backStack.addOrTrim(key)
     }
 
     fun navigateBack() {
         Timber.d("#### navigateBack()")
         when {
             backStack.size > 1  -> backStack.removeLastOrNull()
+        }
+    }
+
+    private fun <T : ATNavKey> NavBackStack<T>.addOrTrim(key: T) {
+        val existingIndex = indexOfFirst { it::class == key::class }
+
+        if (existingIndex >= 0) {
+            subList(existingIndex + 1, size).clear() // Remove everything after the existing element
+        } else {
+            add(key)
         }
     }
 

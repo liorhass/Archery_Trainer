@@ -101,7 +101,7 @@ private val LightCustomColors = CustomColors(
     singleFrameSliderThumb = Color(0xFFFF3B30),
     singleFrameSliderThumbHighlight = Color(0xFFFF7A73),
     singleFrameSliderThumbGlow = Color(0x44FF3B30),
-    webLink = Color(0xFF003090),
+    webLink = Color(0xFF0044CC),
 )
 private val DarkCustomColors = CustomColors(
     success = Color(0xFF81C784),
@@ -114,7 +114,7 @@ private val DarkCustomColors = CustomColors(
     singleFrameSliderThumb = Color(0xFFFF3B30),
     singleFrameSliderThumbHighlight = Color(0xFFFF7A73),
     singleFrameSliderThumbGlow = Color(0x44FF3B30),
-    webLink = Color(0xFF4060FF),
+    webLink = Color(0xFF66B3FF),
 )
 
 @Composable
