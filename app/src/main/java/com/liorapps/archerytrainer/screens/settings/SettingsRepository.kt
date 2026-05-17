@@ -30,6 +30,7 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
             dummyFloat  = prefs[DUMMY_FLOAT_KEY] ?: 77.33f,
 
             shootingSetsHaveScores  = prefs[SHOOTING_SETS_HAVE_SCORES_KEY] ?: false,
+            timeBetweenSetsForTooSoonWarn = prefs[TIME_BETWEEN_SETS_FOR_TOO_SOON_WARN_KEY] ?: 60, // In sec
         )
     }
 //    val darkMode: Flow<Boolean> = dataStore.data.map { prefs -> prefs[DARK_MODE_KEY] ?: false }
@@ -48,6 +49,7 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
         /** When true, tapping an Add-Set button opens a dialog to enter a score.
          * When false, a Set is inserted immediately with score = -1 (no score) */
         val shootingSetsHaveScores: Boolean = false,
+        val timeBetweenSetsForTooSoonWarn: Int = 60,
     )
 
     companion object {
@@ -60,6 +62,7 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
         val SHOOTING_SESSION_BUTTON_VALUES_KEY = stringPreferencesKey("ssbvk")
         val DUMMY_FLOAT_KEY = floatPreferencesKey("dfk")
         val SHOOTING_SETS_HAVE_SCORES_KEY = booleanPreferencesKey("sshsk")
+        val TIME_BETWEEN_SETS_FOR_TOO_SOON_WARN_KEY = intPreferencesKey("tbsftswk")
     }
 
     // Write settings
@@ -74,6 +77,7 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
             prefs[SHOOTING_SESSION_BUTTON_VALUES_KEY]    = newSettings.shootingSessionButtonValues
             prefs[DUMMY_FLOAT_KEY]    = newSettings.dummyFloat
             prefs[SHOOTING_SETS_HAVE_SCORES_KEY] = newSettings.shootingSetsHaveScores
+            prefs[TIME_BETWEEN_SETS_FOR_TOO_SOON_WARN_KEY] = newSettings.timeBetweenSetsForTooSoonWarn
         }
     }
     suspend fun setDelaySec(delaySec: Int) {

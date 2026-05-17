@@ -130,19 +130,36 @@ class EditShootingSessionViewModel (
         return newId
     }
 
+    var timeOfPreviousAddSet = 0L  // To prevent adding sets in quick succession
     /** Add-Set button */
-    fun onSetButtonTapped(arrowCount: Int) {
-        if (settingsFlow.value.shootingSetsHaveScores) {
-            // Open score dialog; the set will be inserted after the user confirms.
-            _uiStateFlow.update {
-                it.copy(
-                    showScoreDialog = true,
-                    scoreDraft = "",
-                    pendingArrowCount = arrowCount,
-                )
+    fun onAddSetButtonTapped(arrowCount: Int) {
+        val now = System.currentTimeMillis()
+        when {
+            settingsFlow.value.shootingSetsHaveScores -> {
+                // Open score dialog; the set will be inserted after the user confirms. See onScoreConfirmed()
+                _uiStateFlow.update {
+                    it.copy(
+                        showScoreDialog = true,
+                        scoreDraft = "",
+                        pendingArrowCount = arrowCount,
+                    )
+                }
             }
-        } else {
-            viewModelScope.launch { addSet(arrowCount, score = -1) }
+            ((settingsFlow.value.timeBetweenSetsForTooSoonWarn > 0) &&
+                    ((now - timeOfPreviousAddSet)/1000 < settingsFlow.value.timeBetweenSetsForTooSoonWarn)) -> {
+                // Open an "Are you sure?" dialog; the set will be inserted after the user confirms. See onAddingSetTooSoonConfirmed()
+                val secSinceLastAddSet = ((now - timeOfPreviousAddSet) / 1000).toInt()
+                _uiStateFlow.update {
+                    it.copy(
+                        showAddingSetTooSoonDialog = true,
+                        secSinceLastAddSet = secSinceLastAddSet,
+                        pendingArrowCount = arrowCount
+                    )
+                }
+            }
+            else -> {
+                viewModelScope.launch { addSet(arrowCount, score = -1) }
+            }
         }
     }
 
@@ -160,6 +177,7 @@ class EditShootingSessionViewModel (
                 score = score,
             )
         )
+        timeOfPreviousAddSet = System.currentTimeMillis()
     }
 
     // Enter-Score dialog
@@ -178,6 +196,19 @@ class EditShootingSessionViewModel (
     fun onScoreDismissed() {
         _uiStateFlow.update {
             it.copy(showScoreDialog = false, pendingArrowCount = null, scoreDraft = "")
+        }
+    }
+
+    fun onAddingSetTooSoonConfirmed() {
+        val arrowCount = _uiStateFlow.value.pendingArrowCount ?: return
+        _uiStateFlow.update {
+            it.copy(showAddingSetTooSoonDialog = false, pendingArrowCount = null)  // Close the dialog
+        }
+        viewModelScope.launch { addSet(arrowCount, -1) }
+    }
+    fun onAddingSetTooSoonCanceled() {
+        _uiStateFlow.update {
+            it.copy(showAddingSetTooSoonDialog = false, pendingArrowCount = null)
         }
     }
 
@@ -232,7 +263,7 @@ class EditShootingSessionViewModel (
     fun onSetButtonLongPressed(index: Int) {
         _uiStateFlow.update {
             it.copy(
-                showEditButtonDialog = true,
+                showEditButtonValueDialog = true,
                 editingButtonIndex = index,
                 buttonValueDraft = it.buttonValues[index].toString(),
             )
@@ -255,7 +286,7 @@ class EditShootingSessionViewModel (
         _uiStateFlow.update {
             it.copy(
                 buttonValues = updated,
-                showEditButtonDialog = false,
+                showEditButtonValueDialog = false,
                 editingButtonIndex = -1,
                 buttonValueDraft = "",
             )
@@ -269,7 +300,7 @@ class EditShootingSessionViewModel (
     fun onButtonValueDismissed() {
         _uiStateFlow.update {
             it.copy(
-                showEditButtonDialog = false,
+                showEditButtonValueDialog = false,
                 editingButtonIndex = -1,
                 buttonValueDraft = "",
             )

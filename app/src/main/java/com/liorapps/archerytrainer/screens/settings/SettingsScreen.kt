@@ -47,7 +47,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.room.util.TableInfo
 import com.liorapps.archerytrainer.ArcheryTrainerDefaults
+import com.liorapps.archerytrainer.screens.video.ui.visible
 import com.liorapps.archerytrainer.ui.theme.ArcheryTrainerTheme
 import kotlin.math.roundToInt
 import kotlin.text.format
@@ -146,6 +148,12 @@ private fun SettingsSection(
             )
 
             SettingsStringItem(
+                title = "Warn if Sets Too Close",
+                value = "${settings.timeBetweenSetsForTooSoonWarn} Sec. - You'll get a warning if sets are less than ${settings.timeBetweenSetsForTooSoonWarn} seconds apart (0 to disable)",
+                onClick = { openDialog = DialogType.SETS_TOO_CLOSE_WARN },
+            )
+
+            SettingsStringItem(
                 title = "Set Buttons",
                 value = settings.shootingSessionButtonValues.ifBlank { "(blank)" },
                 onClick = { openDialog = DialogType.PARAM_C },
@@ -180,10 +188,19 @@ private fun SettingsSection(
             onDismiss = { openDialog = null },
         )
 
-        DialogType.VIDEO_RESOLUTION -> VideoResolutionDialog (
+        DialogType.VIDEO_RESOLUTION -> VideoResolutionDialog(
             current = settings.videoResolution,
             onConfirm = { newValue ->
                 onSettingsChange(settings.copy(videoResolution = newValue))
+                openDialog = null
+            },
+            onDismiss = { openDialog = null },
+        )
+
+        DialogType.SETS_TOO_CLOSE_WARN -> SetsTooCloseWarnDialog(
+            current = settings.timeBetweenSetsForTooSoonWarn,
+            onConfirm = { newValue ->
+                onSettingsChange(settings.copy(timeBetweenSetsForTooSoonWarn = newValue))
                 openDialog = null
             },
             onDismiss = { openDialog = null },
@@ -211,7 +228,7 @@ private fun SettingsSection(
     }
 }
 
-private enum class DialogType { DELAY_SEC, VIDEO_BITRATE, VIDEO_RESOLUTION, PARAM_C, PARAM_D }
+private enum class DialogType { SETS_TOO_CLOSE_WARN, DELAY_SEC, VIDEO_BITRATE, VIDEO_RESOLUTION, PARAM_C, PARAM_D }
 
 @Composable
 private fun SettingsSectionHeader(title: String) {
@@ -303,6 +320,7 @@ private fun SettingsStringItem(
 private fun SimpleIntDialog(
     current: Int,
     title: String,
+    description: String,
     label: String,
     illegalValueMsg: String,
     onConfirm: (Int) -> Unit,
@@ -316,17 +334,23 @@ private fun SimpleIntDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = {
-            OutlinedTextField(
-                value = text,
-                onValueChange = { text = it },
-                label = { Text(label) },
-                isError = !isLegalValue(text.toIntOrNull()),
-                supportingText = {
-                    if (isError) Text(illegalValueMsg)
-                },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Companion.Number),
-                singleLine = true,
-            )
+            Column( modifier = Modifier.fillMaxWidth()) {
+                if (description.isNotEmpty()) {
+                    Text(description)
+                    Spacer(Modifier.height(30.dp))
+                }
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { text = it },
+                    label = { Text(label) },
+                    isError = !isLegalValue(text.toIntOrNull()),
+                    supportingText = {
+                        if (isError) Text(illegalValueMsg)
+                    },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Companion.Number),
+                    singleLine = true,
+                )
+            }
         },
         confirmButton = {
             TextButton(
@@ -401,6 +425,7 @@ private fun DelaySecDialog(
     SimpleIntDialog(
         current = current,
         title = "Delay (Sec)",
+        description = "",
         label = "Video delay in seconds",
         illegalValueMsg = "Please enter a number between 0 and ${ArcheryTrainerDefaults.MAX_DELAY_SEC}",
         onConfirm = onConfirm,
@@ -418,7 +443,8 @@ private fun VideoBitrateDialog(
     SimpleIntDialog(
         current = current,
         title = "Video Bitrate (Bits/Sec)",
-        label = "Video bitrate in bits/sec (note: bits not bytes!)",
+        description = "Video bitrate in bits/sec (note: bits not bytes!)",
+        label = "Bitrate in bits/sec",
         illegalValueMsg = "Please enter a number between 0 and ${ArcheryTrainerDefaults.MAX_BIT_RATE}",
         onConfirm = onConfirm,
         onDismiss = onDismiss,
@@ -459,6 +485,25 @@ private fun VideoResolutionDialog(
         onDismiss = onDismiss,
     )
 }
+
+@Composable
+private fun SetsTooCloseWarnDialog(
+    current: Int,
+    onConfirm: (Int) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    SimpleIntDialog(
+        current = current,
+        title = "Sets Too Close Warn Threshold",
+        description = "If a new set is added soon after a previous one, you'll get a warning (in order to prevent accidental additions). Define here the threshold (in Seconds) for that warning (e.g. 60). 0 to disable this warning.",
+        label = "Threshold in Sec.",
+        illegalValueMsg = "Please enter a positive number",
+        onConfirm = onConfirm,
+        onDismiss = onDismiss,
+        isLegalValue = { value -> (value != null) && (value >= 0) },
+    )
+}
+
 
 
 @Composable
@@ -645,6 +690,7 @@ fun SettingsScreenContentPreview() {
                 bitRate = 15_000_000,
                 shootingSessionButtonValues = "1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12",
                 dummyFloat = 0.73f,
+                timeBetweenSetsForTooSoonWarn = 33,
             ),
             onSettingsChange = {},
             onNavigateBack = {},

@@ -95,7 +95,7 @@ fun EditShootingSessionTab(
         // Add-Set button grid
         AddSetSection(
             buttonValues = uiState.buttonValues,
-            onButtonTapped = viewModel::onSetButtonTapped,
+            onButtonTapped = viewModel::onAddSetButtonTapped,
             onButtonLongPressed = viewModel::onSetButtonLongPressed,
         )
 
@@ -457,8 +457,8 @@ fun EditShootingSessionTabDialogs( //  Dialogs (rendered above the Scaffold)
 ) {
     if (uiState.showEditCommentDialog) {
         EditCommentDialog(
-            draft = uiState.commentDraft,
-            onDraftChanged = viewModel::onCommentDraftChanged,
+            commentDraft = uiState.commentDraft,
+            onCommentDraftChanged = viewModel::onCommentDraftChanged,
             onConfirm = viewModel::onCommentConfirmed,
             onDismiss = viewModel::onCommentDismissed,
         )
@@ -466,21 +466,29 @@ fun EditShootingSessionTabDialogs( //  Dialogs (rendered above the Scaffold)
 
     if (uiState.showScoreDialog) {
         EnterScoreDialog(
-            draft = uiState.scoreDraft,
+            scoreDraft = uiState.scoreDraft,
             isValid = uiState.isScoreInputValid,
-            onDraftChanged = viewModel::onScoreDraftChanged,
+            onScoreDraftChanged = viewModel::onScoreDraftChanged,
             onConfirm = viewModel::onScoreConfirmed,
             onDismiss = viewModel::onScoreDismissed,
         )
     }
 
-    if (uiState.showEditButtonDialog) {
+    if (uiState.showEditButtonValueDialog) {
         EditButtonValueDialog(
-            draft = uiState.buttonValueDraft,
+            buttonValueDraft = uiState.buttonValueDraft,
             isValid = uiState.isButtonValueInputValid,
-            onDraftChanged = viewModel::onButtonValueDraftChanged,
+            onButtonValueDraftChanged = viewModel::onButtonValueDraftChanged,
             onConfirm = viewModel::onButtonValueConfirmed,
             onDismiss = viewModel::onButtonValueDismissed,
+        )
+    }
+
+    if (uiState.showAddingSetTooSoonDialog) {
+        AddingSetTooSoonDialog(
+            secSinceLastAddSet = uiState.secSinceLastAddSet,
+            onConfirm = viewModel::onAddingSetTooSoonConfirmed,
+            onDismiss = viewModel::onAddingSetTooSoonCanceled,
         )
     }
 }
@@ -488,8 +496,8 @@ fun EditShootingSessionTabDialogs( //  Dialogs (rendered above the Scaffold)
 /** Dialog for editing the optional session description / comment. */
 @Composable
 private fun EditCommentDialog(
-    draft: String,
-    onDraftChanged: (String) -> Unit,
+    commentDraft: String,
+    onCommentDraftChanged: (String) -> Unit,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -498,8 +506,8 @@ private fun EditCommentDialog(
         title = { Text("Edit Description") },
         text = {
             OutlinedTextField(
-                value = draft,
-                onValueChange = onDraftChanged,   // ViewModel enforces the 1 000-char cap
+                value = commentDraft,
+                onValueChange = onCommentDraftChanged,   // ViewModel enforces the 1 000-char cap
                 modifier = Modifier.fillMaxWidth(),
                 label = { Text("Description") },
                 placeholder = { Text("Add a description for this session…") },
@@ -507,7 +515,7 @@ private fun EditCommentDialog(
                 maxLines = 8,
                 supportingText = {
                     Text(
-                        text = "${draft.length} / 1000",
+                        text = "${commentDraft.length} / 1000",
                         modifier = Modifier.fillMaxWidth(),
                         textAlign = TextAlign.End,
                         style = MaterialTheme.typography.labelSmall,
@@ -531,13 +539,13 @@ private fun EditCommentDialog(
 /** Dialog that asks the user to enter a score (0–999) before the Set is saved. */
 @Composable
 private fun EnterScoreDialog(
-    draft: String,
+    scoreDraft: String,
     isValid: Boolean,
-    onDraftChanged: (String) -> Unit,
+    onScoreDraftChanged: (String) -> Unit,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val showError = draft.isNotEmpty() && !isValid
+    val showError = scoreDraft.isNotEmpty() && !isValid
 
     // A FocusRequester to programmatically focus the input field
     val focusRequester = remember { FocusRequester() }
@@ -547,8 +555,8 @@ private fun EnterScoreDialog(
         title = { Text("Enter Score") },
         text = {
             OutlinedTextField(
-                value = draft,
-                onValueChange = { onDraftChanged(it.take(3)) },  // hard cap at 3 chars
+                value = scoreDraft,
+                onValueChange = { onScoreDraftChanged(it.take(3)) },  // hard cap at 3 chars
                 modifier = Modifier.fillMaxWidth()
                                    .focusRequester(focusRequester),
                 label = { Text("Score (0 – 999)") },
@@ -588,21 +596,21 @@ private fun EnterScoreDialog(
 /** Dialog that lets the user change the arrow-count on one of the 12 grid buttons. */
 @Composable
 private fun EditButtonValueDialog(
-    draft: String,
+    buttonValueDraft: String,
     isValid: Boolean,
-    onDraftChanged: (String) -> Unit,
+    onButtonValueDraftChanged: (String) -> Unit,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val showError = draft.isNotEmpty() && !isValid
+    val showError = buttonValueDraft.isNotEmpty() && !isValid
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Set Button Value") },
         text = {
             OutlinedTextField(
-                value = draft,
-                onValueChange = { onDraftChanged(it.take(3)) },  // hard cap at 3 chars
+                value = buttonValueDraft,
+                onValueChange = { onButtonValueDraftChanged(it.take(3)) },  // hard cap at 3 chars
                 modifier = Modifier.fillMaxWidth(),
                 label = { Text("Arrows (1 – 999)") },
                 isError = showError,
@@ -629,6 +637,27 @@ private fun EditButtonValueDialog(
         },
     )
 }
+
+/** Dialog that lets the user change the arrow-count on one of the 12 grid buttons. */
+@Composable
+private fun AddingSetTooSoonDialog(
+    secSinceLastAddSet: Int,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Confirm adding set") },
+        text = { Text("Are you sure? The previous set was added only $secSinceLastAddSet seconds ago.") },
+        confirmButton = {
+            TextButton(onClick = onConfirm) { Text("Yes") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Oops, Cancel") }
+        },
+    )
+}
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Date / Time Helper

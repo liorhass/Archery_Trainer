@@ -10,15 +10,14 @@ data class EditShootingSessionState(
     val sets: List<ShootingSetWithSession> = emptyList(),
 
     val buttonValues: List<Int> = EditShootingSessionViewModel.DEFAULT_BUTTON_VALUES, // Button grid configuration (12 values)
-    // Edit-comment dialog
     val showEditCommentDialog: Boolean = false,
     val commentDraft: String = "",
-    // Enter-score dialog
+    val secSinceLastAddSet: Int = -1,
+    val showAddingSetTooSoonDialog: Boolean = false,
     val showScoreDialog: Boolean = false,
     val scoreDraft: String = "",
     val pendingArrowCount: Int? = null,   // the arrow-count waiting for a score entry
-    // Edit-button-value dialog
-    val showEditButtonDialog: Boolean = false,
+    val showEditButtonValueDialog: Boolean = false,
     val editingButtonIndex: Int = -1,
     val buttonValueDraft: String = "",
 
