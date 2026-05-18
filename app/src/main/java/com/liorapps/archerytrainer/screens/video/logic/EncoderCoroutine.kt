@@ -95,7 +95,7 @@ class EncoderCoroutine(
 
     /**
      * Opens the camera, starts the encoder, and drains the encoder output queue
-     * until the coroutine is cancelled.
+     * until the coroutine is canceled.
      *
      * Must be called from a coroutine running on [Dispatchers.IO].
      */
@@ -116,8 +116,8 @@ class EncoderCoroutine(
             // ------------------------------------------------------------------
             val format = MediaFormat.createVideoFormat(
                 MediaFormat.MIMETYPE_VIDEO_AVC,
-                ArcheryTrainerDefaults.VideoResolution.HD_1280x720().width,
-                ArcheryTrainerDefaults.VideoResolution.HD_1280x720().height,
+                ArcheryTrainerDefaults.VideoResolution.HD_1280x720.width,
+                ArcheryTrainerDefaults.VideoResolution.HD_1280x720.height,
             ).apply {
                 setInteger(
                     MediaFormat.KEY_COLOR_FORMAT,
@@ -131,7 +131,7 @@ class EncoderCoroutine(
                     MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR,
                 )
             }
-            Timber.d("#######E Required resolution: ${ArcheryTrainerDefaults.VideoResolution.HD_1280x720().width}x${ArcheryTrainerDefaults.VideoResolution.HD_1280x720().height}")
+            Timber.d("#######E Required resolution: ${ArcheryTrainerDefaults.VideoResolution.HD_1280x720.width}x${ArcheryTrainerDefaults.VideoResolution.HD_1280x720.height}")
 
             encoder = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_VIDEO_AVC)
             encoder.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
@@ -472,21 +472,21 @@ class EncoderCoroutine(
                     }
                 }
 
-                override fun onReady(session: CameraCaptureSession) {
-                    super.onReady(session)
-                }
-                override fun onActive(session: CameraCaptureSession) {
-                    super.onActive(session)
-                }
-                override fun onClosed(session: CameraCaptureSession) {
-                    super.onClosed(session)
-                }
-                override fun onCaptureQueueEmpty(session: CameraCaptureSession) {
-                    super.onCaptureQueueEmpty(session)
-                }
-                override fun onSurfacePrepared(session: CameraCaptureSession, surface: Surface) {
-                    super.onSurfacePrepared(session, surface)
-                }
+//                override fun onReady(session: CameraCaptureSession) {
+//                    super.onReady(session)
+//                }
+//                override fun onActive(session: CameraCaptureSession) {
+//                    super.onActive(session)
+//                }
+//                override fun onClosed(session: CameraCaptureSession) {
+//                    super.onClosed(session)
+//                }
+//                override fun onCaptureQueueEmpty(session: CameraCaptureSession) {
+//                    super.onCaptureQueueEmpty(session)
+//                }
+//                override fun onSurfacePrepared(session: CameraCaptureSession, surface: Surface) {
+//                    super.onSurfacePrepared(session, surface)
+//                }
             },
         )
         device.createCaptureSession(cameraSessionConfig)

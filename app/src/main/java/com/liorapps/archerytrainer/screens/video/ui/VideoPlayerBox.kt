@@ -312,7 +312,7 @@ fun VideoPlayerBoxPreview() {
     ArcheryTrainerTheme {
         VideoPlayerBox(
             innerPadding = PaddingValues(0.dp),
-            videoResolution = ArcheryTrainerDefaults.VideoResolution.HD_1280x720(),
+            videoResolution = ArcheryTrainerDefaults.VideoResolution.HD_1280x720,
             isLandscape = true,
             isPlaying = true,
             bufferingTime = 22,
@@ -340,7 +340,7 @@ fun VideoPlayerBoxPreview1() {
     ArcheryTrainerTheme {
         VideoPlayerBox(
             innerPadding = PaddingValues(0.dp),
-            videoResolution = ArcheryTrainerDefaults.VideoResolution.HD_1280x720(),
+            videoResolution = ArcheryTrainerDefaults.VideoResolution.HD_1280x720,
             isLandscape = false,
             isPlaying = false,
             bufferingTime = 22,

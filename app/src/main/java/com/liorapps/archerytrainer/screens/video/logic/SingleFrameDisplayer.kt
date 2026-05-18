@@ -74,7 +74,7 @@ class SingleFrameDisplayer(
     companion object {
         private const val CODEC_LATENCY = 4      // extra frames fed past target to prime pipeline
         private const val INPUT_TIMEOUT_US = 10_000L
-        private const val OUTPUT_TIMEOUT_US = 10_000L
+// todo: 2brm        private const val OUTPUT_TIMEOUT_US = 10_000L
     }
 
     /**
@@ -109,8 +109,8 @@ class SingleFrameDisplayer(
 
         val videoFormat = MediaFormat.createVideoFormat(
             MediaFormat.MIMETYPE_VIDEO_AVC,
-            ArcheryTrainerDefaults.VideoResolution.HD_1280x720().width, // todo from settings
-            ArcheryTrainerDefaults.VideoResolution.HD_1280x720().height, // todo from settings
+            ArcheryTrainerDefaults.VideoResolution.HD_1280x720.width, // todo from settings
+            ArcheryTrainerDefaults.VideoResolution.HD_1280x720.height, // todo from settings
         )
         // SPS (NAL type 7) and PPS (NAL type 8) are set here once. The codec will
         // automatically re-apply them after each flush() - no need to re-feed them manually

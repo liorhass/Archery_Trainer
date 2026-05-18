@@ -1,3 +1,7 @@
+@file:Suppress("AssignedValueIsNeverRead", "AssignedValueIsNeverRead", "AssignedValueIsNeverRead",
+    "AssignedValueIsNeverRead"
+)
+
 package com.liorapps.archerytrainer.screens.settings
 
 import androidx.compose.foundation.clickable
@@ -19,7 +23,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -37,6 +40,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -47,9 +51,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.room.util.TableInfo
 import com.liorapps.archerytrainer.ArcheryTrainerDefaults
-import com.liorapps.archerytrainer.screens.video.ui.visible
 import com.liorapps.archerytrainer.ui.theme.ArcheryTrainerTheme
 import kotlin.math.roundToInt
 import kotlin.text.format
@@ -58,7 +60,6 @@ import kotlin.text.format
 fun SettingsScreen(
     viewModel: SettingsViewModel,
     onNavigateBack: () -> Unit,
-    onOpenDrawer: () -> Unit,
 ) {
     val settings by viewModel.settingsFlow.collectAsStateWithLifecycle()
 
@@ -92,7 +93,7 @@ fun SettingsScreenContent(
             )
         }
     ) { innerPadding ->
-        val modifier = modifier.then(Modifier.Companion.padding(innerPadding))
+        val modifier = modifier.then(Modifier.padding(innerPadding))
         SettingsSection(settings, onSettingsChange, modifier)
     }
 }
@@ -111,7 +112,7 @@ private fun SettingsSection(
         color = MaterialTheme.colorScheme.background,
     ) {
         Column(
-            modifier = Modifier.Companion
+            modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState()),
         ) {
@@ -133,7 +134,7 @@ private fun SettingsSection(
 
             SettingsStringItem(
                 title = "Video Resolution",
-                value = settings.videoResolution.toString(),
+                value = settings.videoResolution.displayName,
                 onClick = { openDialog = DialogType.VIDEO_RESOLUTION },
             )
 
@@ -347,7 +348,7 @@ private fun SimpleIntDialog(
                     supportingText = {
                         if (isError) Text(illegalValueMsg)
                     },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Companion.Number),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     singleLine = true,
                 )
             }
@@ -366,7 +367,7 @@ private fun SimpleIntDialog(
 
 @Composable
 private fun SingleSelectionStringDialog(
-    title: String,
+    @Suppress("SameParameterValue", "SameParameterValue") title: String,
     current: String,
     options: List<String>,
     onConfirm: (String) -> Unit,
@@ -378,24 +379,24 @@ private fun SingleSelectionStringDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = {
-            Column(modifier = Modifier.Companion.selectableGroup()) {
+            Column(modifier = Modifier.selectableGroup()) {
                 options.forEach { option ->
                     Row(
-                        modifier = Modifier.Companion
+                        modifier = Modifier
                             .fillMaxWidth()
                             .selectable(
                                 selected = (option == selected),
                                 onClick = { selected = option },
-                                role = Role.Companion.RadioButton,
+                                role = Role.RadioButton,
                             )
                             .padding(vertical = 4.dp),
-                        verticalAlignment = Alignment.Companion.CenterVertically,
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
                         RadioButton(
                             selected = (option == selected),
                             onClick = null, // handled by Row
                         )
-                        Spacer(modifier = Modifier.Companion.width(8.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = option,
                             style = MaterialTheme.typography.bodyLarge,
@@ -460,26 +461,26 @@ private fun VideoResolutionDialog(
 ) {
     SingleSelectionStringDialog(
         title = "Video Resolution",
-        current = current.toString(),
+        current = current.displayName,
         options = listOf(
-            ArcheryTrainerDefaults.VideoResolution.SD_640x480.toString(),
-            ArcheryTrainerDefaults.VideoResolution.HD_1280x720.toString(),
-            ArcheryTrainerDefaults.VideoResolution.FHD_1920x1080.toString(),
-            ArcheryTrainerDefaults.VideoResolution.QHD_2560x1440.toString(),
-            ArcheryTrainerDefaults.VideoResolution.UHD_3840x2160.toString(),
+            ArcheryTrainerDefaults.VideoResolution.SD_640x480.displayName,
+            ArcheryTrainerDefaults.VideoResolution.HD_1280x720.displayName,
+            ArcheryTrainerDefaults.VideoResolution.FHD_1920x1080.displayName,
+            ArcheryTrainerDefaults.VideoResolution.QHD_2560x1440.displayName,
+            ArcheryTrainerDefaults.VideoResolution.UHD_3840x2160.displayName,
         ),
         onConfirm = { newResolution ->
             when (newResolution) {
-                ArcheryTrainerDefaults.VideoResolution.SD_640x480.toString() -> onConfirm(
-                    ArcheryTrainerDefaults.VideoResolution.SD_640x480())
-                ArcheryTrainerDefaults.VideoResolution.HD_1280x720.toString() -> onConfirm(
-                    ArcheryTrainerDefaults.VideoResolution.HD_1280x720())
-                ArcheryTrainerDefaults.VideoResolution.FHD_1920x1080.toString() -> onConfirm(
-                    ArcheryTrainerDefaults.VideoResolution.FHD_1920x1080())
-                ArcheryTrainerDefaults.VideoResolution.QHD_2560x1440.toString() -> onConfirm(
-                    ArcheryTrainerDefaults.VideoResolution.QHD_2560x1440())
-                ArcheryTrainerDefaults.VideoResolution.UHD_3840x2160.toString() -> onConfirm(
-                    ArcheryTrainerDefaults.VideoResolution.UHD_3840x2160())
+                ArcheryTrainerDefaults.VideoResolution.SD_640x480.displayName ->
+                    onConfirm(ArcheryTrainerDefaults.VideoResolution.SD_640x480)
+                ArcheryTrainerDefaults.VideoResolution.HD_1280x720.displayName ->
+                    onConfirm(ArcheryTrainerDefaults.VideoResolution.HD_1280x720)
+                ArcheryTrainerDefaults.VideoResolution.FHD_1920x1080.displayName ->
+                    onConfirm(ArcheryTrainerDefaults.VideoResolution.FHD_1920x1080)
+                ArcheryTrainerDefaults.VideoResolution.QHD_2560x1440.displayName ->
+                    onConfirm(ArcheryTrainerDefaults.VideoResolution.QHD_2560x1440)
+                ArcheryTrainerDefaults.VideoResolution.UHD_3840x2160.displayName ->
+                    onConfirm(ArcheryTrainerDefaults.VideoResolution.UHD_3840x2160)
             }
         },
         onDismiss = onDismiss,
@@ -504,92 +505,54 @@ private fun SetsTooCloseWarnDialog(
     )
 }
 
-
-
-@Composable
-private fun DelaySecDialog2brm(
-    current: Int,
-    onConfirm: (Int) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    var text by remember { mutableStateOf(current.toString()) }
-    val isError = (text.toIntOrNull() == null) && (text.toInt() >= 0) && (text.toInt() <= ArcheryTrainerDefaults.MAX_DELAY_SEC)
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Delay (Sec)") },
-        text = {
-            OutlinedTextField(
-                value = text,
-                onValueChange = { text = it },
-                label = { Text("Video delay in seconds") },
-                isError = isError,
-                supportingText = {
-                    if (isError) Text("Please enter a number between 0 and ${ArcheryTrainerDefaults}.MAX_DELAY_SEC")
-                },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Companion.Number),
-                singleLine = true,
-            )
-        },
-        confirmButton = {
-            TextButton(
-                onClick = { text.toIntOrNull()?.let(onConfirm) },
-                enabled = !isError,
-            ) { Text("OK") }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
-        },
-    )
-}
-
-@Composable
-private fun ParamBDialog(
-    current: Int,
-    options: List<Int>,
-    onConfirm: (Int) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    var selected by remember { mutableStateOf(current) }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Parameter B") },
-        text = {
-            Column(modifier = Modifier.Companion.selectableGroup()) {
-                options.forEach { option ->
-                    Row(
-                        modifier = Modifier.Companion
-                            .fillMaxWidth()
-                            .selectable(
-                                selected = (option == selected),
-                                onClick = { selected = option },
-                                role = Role.Companion.RadioButton,
-                            )
-                            .padding(vertical = 4.dp),
-                        verticalAlignment = Alignment.Companion.CenterVertically,
-                    ) {
-                        RadioButton(
-                            selected = (option == selected),
-                            onClick = null, // handled by Row
-                        )
-                        Spacer(modifier = Modifier.Companion.width(8.dp))
-                        Text(
-                            text = option.toString(),
-                            style = MaterialTheme.typography.bodyLarge,
-                        )
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = { onConfirm(selected) }) { Text("OK") }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
-        },
-    )
-}
+// todo: 2brm
+//@Composable
+//private fun ParamBDialog(
+//    current: Int,
+//    options: List<Int>,
+//    onConfirm: (Int) -> Unit,
+//    onDismiss: () -> Unit,
+//) {
+//    var selected by remember { mutableIntStateOf(current) }
+//
+//    AlertDialog(
+//        onDismissRequest = onDismiss,
+//        title = { Text("Parameter B") },
+//        text = {
+//            Column(modifier = Modifier.selectableGroup()) {
+//                options.forEach { option ->
+//                    Row(
+//                        modifier = Modifier
+//                            .fillMaxWidth()
+//                            .selectable(
+//                                selected = (option == selected),
+//                                onClick = { selected = option },
+//                                role = Role.RadioButton,
+//                            )
+//                            .padding(vertical = 4.dp),
+//                        verticalAlignment = Alignment.CenterVertically,
+//                    ) {
+//                        RadioButton(
+//                            selected = (option == selected),
+//                            onClick = null, // handled by Row
+//                        )
+//                        Spacer(modifier = Modifier.width(8.dp))
+//                        Text(
+//                            text = option.toString(),
+//                            style = MaterialTheme.typography.bodyLarge,
+//                        )
+//                    }
+//                }
+//            }
+//        },
+//        confirmButton = {
+//            TextButton(onClick = { onConfirm(selected) }) { Text("OK") }
+//        },
+//        dismissButton = {
+//            TextButton(onClick = onDismiss) { Text("Cancel") }
+//        },
+//    )
+//}
 
 @Composable
 private fun ParamCDialog(
@@ -633,12 +596,12 @@ private fun ParamDDialog(
         onDismissRequest = onDismiss,
         title = { Text("Parameter D") },
         text = {
-            Column(horizontalAlignment = Alignment.Companion.CenterHorizontally) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
                     text = displayValue,
                     style = MaterialTheme.typography.headlineSmall,
                     color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.Companion.padding(bottom = 8.dp),
+                    modifier = Modifier.padding(bottom = 8.dp),
                 )
                 Slider(
                     value = sliderValue,
@@ -647,7 +610,7 @@ private fun ParamDDialog(
                     steps = 98, // 100 intervals → 99 intermediate stops (0.01 each)
                 )
                 Row(
-                    modifier = Modifier.Companion.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
                     Text("0.00", style = MaterialTheme.typography.labelSmall)
@@ -664,19 +627,6 @@ private fun ParamDDialog(
     )
 }
 
-// ---------------------------------------------------------------------------
-// Preview
-// ---------------------------------------------------------------------------
-data class MySettings(
-    val paramA: Int = 0,
-    val paramB: Int = PARAM_B_OPTIONS.first(),
-    val paramC: String = "",
-    val paramD: Float = 0.5f,
-) {
-    companion object {
-        val PARAM_B_OPTIONS = listOf(10, 20, 50, 100, 200)
-    }
-}
 
 @Preview(showBackground = true)
 @Composable
@@ -685,7 +635,7 @@ fun SettingsScreenContentPreview() {
         SettingsScreenContent(
             settings = SettingsRepository.Settings(
                 delaySec = 25,
-                videoResolution = ArcheryTrainerDefaults.VideoResolution.HD_1280x720(),
+                videoResolution = ArcheryTrainerDefaults.VideoResolution.HD_1280x720,
                 frameRate = 30,
                 bitRate = 15_000_000,
                 shootingSessionButtonValues = "1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12",

@@ -79,7 +79,7 @@ interface ShootingSessionDao {
     suspend fun deleteShootingSession(shootingSession: ShootingSessionEntity): Int
 
     /**
-     * Deletes an shooting-session by its ID.
+     * Deletes a shooting-session by its ID.
      * Returns the number of rows deleted (0 if the shooting-session was not found).
      */
     @Query("DELETE FROM shooting_sessions WHERE id = :shootingSessionId")

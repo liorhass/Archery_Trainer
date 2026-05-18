@@ -100,7 +100,7 @@ class DelayedVideoViewModel(application: Application, val settingsRepo: Settings
     var horizontalDragSensitivity: Float by mutableFloatStateOf(60f) //todo from settings
         private set
 
-    private val _isFullScreen = MutableStateFlow<Boolean>(false)
+    private val _isFullScreen = MutableStateFlow(false)
     val isFullScreen = _isFullScreen.asStateFlow()
 
     private val _cameraPermissionStateFlow =
@@ -160,7 +160,7 @@ class DelayedVideoViewModel(application: Application, val settingsRepo: Settings
     private var decoderJob: Job? = null
 
     private val _videoResolution = MutableStateFlow<ArcheryTrainerDefaults.VideoResolution>(
-        ArcheryTrainerDefaults.VideoResolution.HD_1280x720()
+        ArcheryTrainerDefaults.VideoResolution.HD_1280x720
     )
     val videoResolution: StateFlow<ArcheryTrainerDefaults.VideoResolution> = _videoResolution.asStateFlow()
 
@@ -172,7 +172,7 @@ class DelayedVideoViewModel(application: Application, val settingsRepo: Settings
         .flatMapLatest { value ->
             flow {
                 val result = withContext(Dispatchers.IO) {
-                    Timber.Forest.d("#######VM singleFrameScrollbarPosition changed. position=${_singleFrameSliderPositionFlow.value}")
+                    Timber.d("#######VM singleFrameScrollbarPosition changed. position=${_singleFrameSliderPositionFlow.value}")
                     singleFrameDisplayer.displayFrameByRelativeLocation(value)
                     _singleFrameSliderPositionFlow.value
                 }
@@ -181,7 +181,7 @@ class DelayedVideoViewModel(application: Application, val settingsRepo: Settings
         }
         .stateIn(
             scope = viewModelScope,
-            started = SharingStarted.Companion.WhileSubscribed(5_000),
+            started = SharingStarted.WhileSubscribed(5_000),
 //            started = SharingStarted.Lazily, // Eagerly,
             initialValue = 0f
         )
@@ -208,7 +208,7 @@ class DelayedVideoViewModel(application: Application, val settingsRepo: Settings
     @RequiresPermission(Manifest.permission.CAMERA)
     fun onTogglePlayback() {
         viewModelScope.launch(Dispatchers.IO) {
-            Timber.Forest.d("#######VM togglePlayback() currentPlaybackState=$playbackState")
+            Timber.d("#######VM togglePlayback() currentPlaybackState=$playbackState")
             when (playbackState) {
 
                 PlaybackState.PAUSED -> {
@@ -225,14 +225,14 @@ class DelayedVideoViewModel(application: Application, val settingsRepo: Settings
                     if (currentSurface != null) {
                         if (singleFrameDisplayer.initialize(currentSurface!!)) {
                             singleFrameDisplayer.seekToLastFrame()  // When we pause, we display the last captured frame
-                            Timber.Forest.d("#######VM singleFrameDisplayer _singleFrameSliderPositionFlow.value = 1.0f")
+                            Timber.d("#######VM singleFrameDisplayer _singleFrameSliderPositionFlow.value = 1.0f")
                             _singleFrameSliderPositionFlow.update { 1.0f } // When we pause we display the last frame captured
 //                            singleFrameDisplayer.displayFrameByRelativeLocation(1.0f)
                         } else {
-                            Timber.Forest.w("#######VM singleFrameDisplayer.initialize() failed")
+                            Timber.w("#######VM singleFrameDisplayer.initialize() failed")
                         }
                     } else {
-                        Timber.Forest.e("#######VM currentSurface=null")
+                        Timber.e("#######VM currentSurface=null")
                     }
                 }
             }
@@ -255,7 +255,7 @@ class DelayedVideoViewModel(application: Application, val settingsRepo: Settings
      * @param surface  The hardware surface that [DecoderCoroutine] will render into.
      */
     fun onSurfaceReady(surface: Surface) {
-        Timber.Forest.d("#######VM onSurfaceReady() playbackState=$playbackState")
+        Timber.d("#######VM onSurfaceReady() playbackState=$playbackState")
         currentSurface = surface
         viewModelScope.launch {
             // Sometimes the surface gets destroyed and then a new one becomes ready in quick
@@ -276,7 +276,7 @@ class DelayedVideoViewModel(application: Application, val settingsRepo: Settings
                     if (singleFrameDisplayer.initialize(surface)) {
                         singleFrameDisplayer.redisplayLastDisplayedFrame()
                     } else {
-                        Timber.Forest.w("#######VM singleFrameDisplayer.setupDecoder() failed")
+                        Timber.w("#######VM singleFrameDisplayer.setupDecoder() failed")
                     }
                 }
             }
@@ -293,7 +293,7 @@ class DelayedVideoViewModel(application: Application, val settingsRepo: Settings
      * via [onSurfaceReady], a fresh decoder job is launched automatically.
      */
     fun onSurfaceDestroyed() {
-        Timber.Forest.d("#######VM onSurfaceDestroyed()")
+        Timber.d("#######VM onSurfaceDestroyed()")
         decoderJob?.cancel()
         decoderJob = null
         singleFrameDisplayer.release()
@@ -317,7 +317,7 @@ class DelayedVideoViewModel(application: Application, val settingsRepo: Settings
      */
     @RequiresPermission(Manifest.permission.CAMERA)
     private fun startPipeline() {
-        Timber.Forest.d("#######VM startPipeline()")
+        Timber.d("#######VM startPipeline()")
         // Discard any stale ring-buffer data and codec config from a prior session.
         ringBuffer.reset()
         cameraAndCodecConfig.invalidateCodecConfig()
@@ -327,7 +327,7 @@ class DelayedVideoViewModel(application: Application, val settingsRepo: Settings
 
         // Launch decoder only if we already have a surface. If not, onSurfaceReady()
         // will launch it once AndroidExternalSurface delivers the surface.
-        Timber.Forest.d("#######VM startPipeline() currentSurface=$currentSurface")
+        Timber.d("#######VM startPipeline() currentSurface=$currentSurface")
         currentSurface?.let { surface -> launchDecoderJob(surface) }
     }
 
@@ -342,7 +342,7 @@ class DelayedVideoViewModel(application: Application, val settingsRepo: Settings
      *   next [startPipeline] call (or in [onCleared]).
      */
     private suspend fun stopPipeline() {
-        Timber.Forest.d(Throwable(), "#######VM stopPipeline(): Current call stack trace")
+        Timber.d(Throwable(), "#######VM stopPipeline(): Current call stack trace")
         // Cancellation is cooperative: each coroutine's finally block handles its own teardown.
         encoderJob?.cancel()
         encoderJob?.join()
@@ -381,9 +381,9 @@ class DelayedVideoViewModel(application: Application, val settingsRepo: Settings
 //                    onError               = ::handleEncoderError,
                 ).run()
             } catch (e: CancellationException) {
-                Timber.Forest.d(e, "#######VM encoder CancellationException")
+                Timber.d(e, "#######VM encoder CancellationException")
             } catch (e: Exception) {
-                Timber.Forest.e(e, "#######VM EncoderCoroutine failed")
+                Timber.e(e, "#######VM EncoderCoroutine failed")
 //                handleEncoderError(e)
                 encoderJob?.cancel()
                 encoderJob = null
@@ -395,7 +395,7 @@ class DelayedVideoViewModel(application: Application, val settingsRepo: Settings
     private fun launchDecoderJob(surface: Surface) {
         decoderJob = viewModelScope.launch(Dispatchers.IO + CoroutineName("ATDecoderCoroutine")) {
             try {
-                Timber.Forest.d("#######VM launchDecoderJob()")
+                Timber.d("#######VM launchDecoderJob()")
                 DecoderCoroutine(
 //                    decoder               = decoder,
                     nalRingBuffer = ringBuffer,
@@ -408,9 +408,9 @@ class DelayedVideoViewModel(application: Application, val settingsRepo: Settings
             } catch (e: CancellationException) {
                 // No need to stop and release the decoder here because DecoderCoroutine.run()
                 // has a finally block that takes care of that before we get here
-                Timber.Forest.d(e, "#######VM decoder CancellationException")
+                Timber.d(e, "#######VM decoder CancellationException")
             } catch (e: Exception) {
-                Timber.Forest.e(e, "#######VM DecoderCoroutine failed")
+                Timber.e(e, "#######VM DecoderCoroutine failed")
 //                handleDecoderError(e)
                 decoderJob?.cancel()
                 decoderJob = null
@@ -463,12 +463,12 @@ class DelayedVideoViewModel(application: Application, val settingsRepo: Settings
      *
      * Note: we do not join/await the jobs before resetting the ring buffer. In the
      * [onCleared] context this is acceptable: the process is either being destroyed or
-     * the ViewModel scope is being cancelled, and any in-flight coroutine work is also
+     * the ViewModel scope is being canceled, and any in-flight coroutine work is also
      * being torn down by the framework.
      */
     override fun onCleared() {
         super.onCleared()
-        Timber.Forest.d("#######VM onCleared()")
+        Timber.d("#######VM onCleared()")
         singleFrameDisplayer.release()
         viewModelScope.launch(Dispatchers.IO) {
             stopPipeline()
@@ -510,7 +510,7 @@ class DelayedVideoViewModel(application: Application, val settingsRepo: Settings
     }
 
     fun onSetSingleFrameLocation(value: Float) {
-        Timber.Forest.d("#######VM onSetSingleFrameLocation() value=$value")
+        Timber.d("#######VM onSetSingleFrameLocation() value=$value")
         _singleFrameSliderPositionFlow.update { value }
     }
     fun onSingleFrameForward() {
@@ -528,14 +528,14 @@ class DelayedVideoViewModel(application: Application, val settingsRepo: Settings
 
     /** Called from the UI (via a launchedEffect) every time the screen rotation changes */
     fun onScreenRotationUpdate(newScreenRotationDegrees: Int) {
-        Timber.Forest.d("#######VM onScreenRotationUpdate() orientation=$newScreenRotationDegrees")
+        Timber.d("#######VM onScreenRotationUpdate() orientation=$newScreenRotationDegrees")
         cameraAndCodecConfig.screenOrientation = newScreenRotationDegrees
     }
 
     var xWhenTouched: Float = 0f
     var frameIndexWhenTouched: Int = -1
     fun onVideoSurfaceTouched(x: Float) {
-        Timber.Forest.d("#######VM onVideoSurfaceTouched() x=$x")
+        Timber.d("#######VM onVideoSurfaceTouched() x=$x")
         xWhenTouched = x
         frameIndexWhenTouched = singleFrameDisplayer.currentFrameIndex
     }
@@ -546,12 +546,12 @@ class DelayedVideoViewModel(application: Application, val settingsRepo: Settings
     fun onHorizontalDragOverVideo(currentX: Float) {
         if (ringBuffer.count == 0) return
         if (playbackState != PlaybackState.PAUSED) {
-            Timber.Forest.e("#######VM onHorizontalDragOverVideo(): but not PAUSED")
+            Timber.e("#######VM onHorizontalDragOverVideo(): but not PAUSED")
             return
         }
 
         val deltaX = currentX - xWhenTouched
-        Timber.Forest.d("#######VM onHorizontalDragOverVideo() deltaX=${deltaX}")
+        Timber.d("#######VM onHorizontalDragOverVideo() deltaX=${deltaX}")
         if (abs(deltaX) >= horizontalDragSensitivity) {
             val frameIndexDelta = (deltaX / horizontalDragSensitivity).roundToInt()
             val targetFrameIndex = frameIndexWhenTouched + frameIndexDelta

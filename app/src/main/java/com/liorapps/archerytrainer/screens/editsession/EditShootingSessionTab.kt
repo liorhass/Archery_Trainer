@@ -284,7 +284,7 @@ private fun StatSectionRow(
 
 @Composable
 private fun StatSectionRowWithFloaters(
-    col1: String,
+    @Suppress("SameParameterValue", "SameParameterValue") col1: String,
     col2: String,
     col3: String,
     activeFloaters: SnapshotStateList<FloatingLabel>,

@@ -307,7 +307,7 @@ private fun FrameSeekBar(
         // Thumb x-position is now within [trackStart, trackEnd] instead of [0, width].
         val thumbX     = trackStart + position * trackLength
 
-        // ── Inactive track (full inset width, dark grey) ──
+        // ── Inactive track (full inset width, dark gray) ──
         drawLine(
             color       = singleFrameSliderInactiveTrackLineColor,
             start       = Offset(trackStart, cy),
@@ -393,7 +393,7 @@ private fun FrameSeekBar(
 //        val glowR = 13.dp.toPx()
 //        val thumbX = position * size.width
 //
-//        // ── Inactive track (full width, dark grey) ──
+//        // ── Inactive track (full width, dark gray) ──
 //        drawLine(
 //            color = Color(0xFF444444),
 //            start = Offset(0f, cy),
@@ -427,7 +427,7 @@ private fun FrameSeekBar(
 //            center = Offset(thumbX, cy),
 //        )
 //
-//        // ── Thumb highlight (small bright centre dot) ──
+//        // ── Thumb highlight (small bright center dot) ──
 //        drawCircle(
 //            color = Color(0xFFFF7A73),
 //            radius = thumbR * 0.35f,

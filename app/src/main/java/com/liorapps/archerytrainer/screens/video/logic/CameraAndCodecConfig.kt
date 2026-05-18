@@ -18,6 +18,7 @@ class CameraAndCodecConfig {
     @Volatile
     var screenOrientation: Int? = null // 0, 90, 180, 270
 
+    @Suppress("unused")
     fun invalidateConfig() {
         invalidateCodecConfig()
         invalidateScreenConfig()

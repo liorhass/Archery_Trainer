@@ -101,7 +101,7 @@ class NalRingBuffer(
 //        }
         val nalNBytes = nalBytes.remaining()
         require(nalNBytes <= bufferSizeBytes) {
-            "NAL unit size ${nalNBytes} exceeds buffer capacity $bufferSizeBytes"
+            "NAL unit size $nalNBytes exceeds buffer capacity $bufferSizeBytes"
         }
 //        if (writeHead + nalBytes.size > bufferSizeBytes) {
         if (writeHead + nalNBytes > bufferSizeBytes) {
@@ -285,7 +285,7 @@ class NalRingBuffer(
      * Clears all ring pointers and resets the buffer to an empty state.
      * The [dataBuffer] is NOT zeroed — its contents are simply treated as invalid.
      * Must be called from a context where neither the encoder nor decoder coroutine
-     * is actively reading or writing (e.g. after both coroutines have been cancelled).
+     * is actively reading or writing (e.g. after both coroutines have been canceled).
      */
     fun reset() {
         metaHead  = 0
@@ -317,7 +317,7 @@ class NalRingBuffer(
         }
     }
 
-    inner class AsLinearBuffer() {
+    inner class AsLinearBuffer {
         /** Number of frames currently in the buffer */
         val count: Int
             get() = metaCount

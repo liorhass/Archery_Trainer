@@ -16,7 +16,7 @@ A high-performance Android application designed for real-time video processing a
 
 ## Features
 - **Real-time Video Processing**: Low-latency camera feed rendering using `AndroidExternalSurface` to ensure smooth visualization of processed frames.
-- **Adaptive Control Bar**: A responsive UI panel that intelligently shifts between a bottom bar in portrait mode and a side bar in landscape mode for optimal ergonomics.
+- **Adaptive Control Bar**: A responsive UI panel that intelligently shifts between a bottom bar in portrait mode and a sidebar in landscape mode for optimal ergonomics.
 - **Dynamic Camera Controls**: Integrated playback management (Play/Pause) and effortless toggling between front and rear-facing cameras.
 - **P-Factor Selector**: A dedicated UI component for real-time adjustment of processing parameters.
 - **Modern Navigation**: Implementation of a settings hub using the latest Navigation 3 architecture for streamlined screen transitions.

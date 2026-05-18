@@ -2,13 +2,10 @@ package com.liorapps.archerytrainer.screens.about
 
 import android.app.Application
 import android.content.pm.PackageManager
-import android.os.Build
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import com.liorapps.archerytrainer.BuildConfig
-import com.liorapps.archerytrainer.screens.editsession.EditShootingSessionViewModel
-import com.liorapps.archerytrainer.screens.settings.SettingsRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow

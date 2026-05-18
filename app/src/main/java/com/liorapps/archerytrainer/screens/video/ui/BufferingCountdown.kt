@@ -11,9 +11,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.input.rememberTextFieldState
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -43,7 +40,7 @@ import kotlin.math.ceil
 /**
  * A circular countdown overlay intended to be placed inside a [Box] that wraps
  * a SurfaceView-based video player.  It renders a shrinking arc ring with a
- * remaining-seconds digit in the centre and a subtle pulse animation.
+ * remaining-seconds digit in the center and a subtle pulse animation.
  *
  * Typical usage inside your existing Box:
  *
@@ -68,17 +65,20 @@ import kotlin.math.ceil
  * @param onBufferingTimeTerminated        Called exactly once when the timer expires **or** when
  *                          [isBufferingDone] becomes `true`, whichever comes first.
  * @param modifier          Applied to the full-size overlay container.
- * @param ringColor         Colour of the depleting arc.
- * @param trackColor        Colour of the static background circle behind the arc.
- * @param textColor         Colour of the countdown digit.
+ * @param ringColor         Color of the depleting arc.
+ * @param trackColor        Color of the static background circle behind the arc.
+ * @param textColor         Color of the countdown digit.
  * @param ringStrokeWidth   Stroke width of both the arc and the track.
  * @param ringSize          Outer diameter of the ring.
- * @param fontSize          Size of the centre countdown digit.
+ * @param fontSize          Size of the center countdown digit.
  */
+@Suppress("SameParameterValue")
 @Composable
 fun BufferingCountdown(
     durationSeconds: Int,
-    isBufferingDone: Boolean,
+    @Suppress("SameParameterValue", "SameParameterValue",
+        "SameParameterValue", "SameParameterValue", "SameParameterValue"
+    ) isBufferingDone: Boolean,
     onBufferingTimeTerminated: () -> Unit,
     modifier: Modifier = Modifier,
     ringColor: Color = Color(0xFF4FC3F7),      // light blue
@@ -108,7 +108,7 @@ fun BufferingCountdown(
         }
     }
 
-    // React to an externally signalled early finish.
+    // React to an externally signaled early finish.
     LaunchedEffect(isBufferingDone) {
         if (isBufferingDone) onBufferingTimeTerminated()
     }

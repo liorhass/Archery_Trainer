@@ -1,3 +1,5 @@
+@file:Suppress("AssignedValueIsNeverRead")
+
 package com.liorapps.archerytrainer.screens.video.ui
 
 import android.Manifest

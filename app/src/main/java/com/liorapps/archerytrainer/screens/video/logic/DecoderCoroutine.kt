@@ -97,7 +97,7 @@ class DecoderCoroutine(
 
         /**
          * After a jump: decoding frames without rendering until [targetPTS] is reached.
-         * Maximises catch-up speed while avoiding visual glitches from half-decoded frames.
+         * Maximizes catch-up speed while avoiding visual glitches from half-decoded frames.
          */
         CATCHING_UP,
     }
@@ -116,8 +116,6 @@ class DecoderCoroutine(
 
         /** How frequently (ms) to poll [codecConfigDataHolder] at startup. */
         private const val CODEC_CONFIG_POLL_MS = 10L
-
-        private const val TAG = "DecoderCoroutine"
     }
 
     // -----------------------------------------------------------------------------------------
@@ -125,12 +123,12 @@ class DecoderCoroutine(
     // -----------------------------------------------------------------------------------------
 
     /**
-     * Initialises the MediaCodec decoder, runs the decode loop until cancelled, then releases
+     * Initializes the MediaCodec decoder, runs the decode loop until canceled, then releases
      * all resources.
      *
      * Suspend contract:
      *   - On cancellation: teardown completes in the `finally` block;
-     *     [CancellationException] is rethrown (standard coroutine behaviour).
+     *     [CancellationException] is rethrown (standard coroutine behavior).
      *   - On any other exception: [onError] is invoked and the function returns normally.
      *
      * Must be called from a coroutine running on [kotlinx.coroutines.Dispatchers.IO].
@@ -168,11 +166,11 @@ class DecoderCoroutine(
         waitForCodecConfig()
 
         // Minimal format: width/height are sufficient for surface-output decoding.
-        // The decoder learns everything else (profile, level, colour space) from the SPS/PPS.
+        // The decoder learns everything else (profile, level, color space) from the SPS/PPS.
         val videoFormat = MediaFormat.createVideoFormat(
             MediaFormat.MIMETYPE_VIDEO_AVC,
-            ArcheryTrainerDefaults.VideoResolution.HD_1280x720().width, // todo from settings
-            ArcheryTrainerDefaults.VideoResolution.HD_1280x720().height, // todo from settings
+            ArcheryTrainerDefaults.VideoResolution.HD_1280x720.width, // todo from settings
+            ArcheryTrainerDefaults.VideoResolution.HD_1280x720.height, // todo from settings
         )
 
         // SPS (NAL type 7) and PPS (NAL type 8) are set here once. The codec will

@@ -5,7 +5,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.navigation3.runtime.NavBackStack
 import timber.log.Timber
 
-class NavigationViewModel(/*val backStack: NavBackStack<ATNavKey>*/) : ViewModel() {
+class NavigationViewModel: ViewModel() {
 
     val backStack = NavBackStack<ATNavKey>(ATNavKey.ShootingSessionList)
 
@@ -33,6 +33,7 @@ class NavigationViewModel(/*val backStack: NavBackStack<ATNavKey>*/) : ViewModel
     }
 
     // https://proandroiddev.com/rethinking-multi-backstack-the-case-for-a-segmented-single-stack-in-compose-navigation-3-fc5f9d747edb
+    @Suppress("unused")
     private fun <T : ATNavKey> NavBackStack<T>.bringToTop(targetRoot: T) {
         val targets = mutableListOf<T>()
         var target = false
@@ -45,13 +46,14 @@ class NavigationViewModel(/*val backStack: NavBackStack<ATNavKey>*/) : ViewModel
 
         this.addAll(targets.ifEmpty { listOf(targetRoot) })
     }
+    @Suppress("unused")
     private val <T : ATNavKey> NavBackStack<T>.currentRoot: T
         get() = this.last { it.isNavigationRoot }
 
 
-    class Factory(
-//        private val backStack: NavBackStack<ATNavKey>,
-    ) : ViewModelProvider.Factory {
+    class Factory /*(
+        private val backStack: NavBackStack<ATNavKey>,
+    )*/ : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             if (modelClass.isAssignableFrom(NavigationViewModel::class.java)) {
                 @Suppress("UNCHECKED_CAST")

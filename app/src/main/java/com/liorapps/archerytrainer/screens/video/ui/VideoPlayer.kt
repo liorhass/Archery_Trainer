@@ -22,8 +22,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.liorapps.archerytrainer.ArcheryTrainerDefaults
-import timber.log.Timber
 import kotlin.math.abs
+
+private class Resolution(val width: Int, val height: Int)
 
 @SuppressLint("ClickableViewAccessibility")
 @Composable
@@ -41,7 +42,7 @@ fun VideoPlayer(
     // needing to recreate the SurfaceView (which is very expensive)
     val currentOnSurfaceReady by rememberUpdatedState(onSurfaceReady)
     val currentOnSurfaceDestroyed by rememberUpdatedState(onSurfaceDestroyed)
-    val currentOnSurfaceTouched by rememberUpdatedState(onSurfaceTouched)
+// todo: 2brm    val currentOnSurfaceTouched by rememberUpdatedState(onSurfaceTouched)
     val currentOnHorizontalDrag by rememberUpdatedState(onHorizontalDrag)
 
     BoxWithConstraints(
@@ -58,10 +59,10 @@ fun VideoPlayer(
         // maxWidth and max Height come from BoxWithConstraints
         val surfaceModifier = remember(videoResolution, maxWidth, maxHeight) {
             val actualVideoResolution = if (screenRotationDegrees % 180 != 0) {
-                videoResolution
+                Resolution(videoResolution.width, videoResolution.height)
             } else {
                 // If screen is rotated 90 or 270 deg, swap width and height
-                ArcheryTrainerDefaults.VideoResolution(videoResolution.height, videoResolution.width)
+                Resolution(videoResolution.height, videoResolution.width)
             }
             if (actualVideoResolution.width > 0 && actualVideoResolution.height > 0) {
                 val videoAspect = actualVideoResolution.width.toFloat() / actualVideoResolution.height.toFloat()

@@ -11,18 +11,18 @@ object ArcheryTrainerDefaults {
     // Video format
     // -------------------------------------------------------------------------
 
+    @Suppress("ClassName") // Lint doesn't like underscores in class names
     @Serializable
-    open class VideoResolution(val width: Int, val height: Int) {
-        @Serializable class SD_640x480(): VideoResolution(640, 480)
-        @Serializable class HD_1280x720(): VideoResolution(1280, 720)
-        @Serializable class FHD_1920x1080(): VideoResolution(1920, 1080)
-        @Serializable class QHD_2560x1440(): VideoResolution(2560, 1440)
-        @Serializable class UHD_3840x2160(): VideoResolution(3840, 2160)
+    sealed class VideoResolution(val width: Int, val height: Int, val displayName: String = "${width}x$height") {
+        @Serializable object SD_640x480: VideoResolution(640, 480, "SD 640x480")
+        @Serializable object HD_1280x720: VideoResolution(1280, 720, "HD 1280x720")
+        @Serializable object FHD_1920x1080: VideoResolution(1920, 1080, "FHD 1920x1080")
+        @Serializable object QHD_2560x1440: VideoResolution(2560, 1440, "QHD 2560x1440")
+        @Serializable object UHD_3840x2160: VideoResolution(3840, 2160, "UHD 3840x2160")
 
-        override fun toString(): String { return "${width}x${height}" }
-
+//        override fun toString(): String { return "${width}x${height}" }
     }
-    val VIDEO_RESOLUTION = VideoResolution.HD_1280x720()  // Default resolution is 720p
+//    val VIDEO_RESOLUTION = VideoResolution.HD_1280x720()  // Default resolution is 720p
 
 //    /** Frame width in pixels. Switch to 1920 for 1080p. */
 //    const val VIDEO_WIDTH: Int = 1280

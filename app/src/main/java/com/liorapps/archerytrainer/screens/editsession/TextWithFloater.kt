@@ -26,7 +26,7 @@ import java.util.concurrent.atomic.AtomicLong
 import kotlin.math.roundToInt
 
 // ── ID generator ──────────────────────────────────────────────────────────────
-private val floaterIdCounter = AtomicLong(0L)
+// todo: 2brm   private val floaterIdCounter = AtomicLong(0L)
 
 // ── Tuneable constants ────────────────────────────────────────────────────────
 private val FLOAT_DISTANCE  = 50.dp   // how far up the label travels

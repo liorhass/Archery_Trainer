@@ -1,13 +1,9 @@
 package com.liorapps.archerytrainer.navigation
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
-import androidx.compose.animation.shrinkOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
@@ -17,9 +13,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.VideoCameraFront
@@ -44,7 +38,6 @@ import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDe
 import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
-//import androidx.navigation3.ui.rememberSceneSetupNavEntryDecorator
 import com.liorapps.archerytrainer.ArcheryTrainerApplication
 import com.liorapps.archerytrainer.screens.about.AboutScreen
 import com.liorapps.archerytrainer.screens.about.AboutViewModel
@@ -97,7 +90,7 @@ fun ArcheryTrainerNavHost(/*navigationViewModel: NavigationViewModel*/) {
             )
         }
     ) {
-        Box(Modifier.Companion.fillMaxSize()) {
+        Box(Modifier.fillMaxSize()) {
             NavDisplay(
                 backStack = navigationViewModel.backStack,
                 onBack = { navigationViewModel.navigateBack() },
@@ -171,7 +164,6 @@ fun ArcheryTrainerNavHost(/*navigationViewModel: NavigationViewModel*/) {
                             SettingsScreen(
                                 viewModel = viewModel,
                                 onNavigateBack = { navigationViewModel.navigateBack() },
-                                onOpenDrawer = { scope.launch { drawerState.open() } },
                             )
                         }
 
@@ -227,12 +219,12 @@ fun AppDrawerContent(
     ModalDrawerSheet {
         Text(
             text = "Archery Trainer",
-            modifier = Modifier.Companion.padding(horizontal = 28.dp, vertical = 24.dp),
+            modifier = Modifier.padding(horizontal = 28.dp, vertical = 24.dp),
             style = MaterialTheme.typography.titleLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
-        Spacer(Modifier.Companion.height(8.dp))
+        Spacer(Modifier.height(8.dp))
 
         StandardDrawerItem(
             label = "Shooting Sessions",
@@ -249,7 +241,7 @@ fun AppDrawerContent(
         )
 
         HorizontalDivider(
-            modifier = Modifier.Companion.padding(vertical = 12.dp, horizontal = 28.dp),
+            modifier = Modifier.padding(vertical = 12.dp, horizontal = 28.dp),
             thickness = 1.dp,
             color = MaterialTheme.colorScheme.outlineVariant
         )
@@ -283,6 +275,6 @@ fun StandardDrawerItem(
         selected = selected,
         onClick = onClick,
         // NavigationDrawerItemDefaults.ItemPadding provides the standard 12.dp horizontal margin
-        modifier = Modifier.Companion.padding(NavigationDrawerItemDefaults.ItemPadding)
+        modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
     )
 }

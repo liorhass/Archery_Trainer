@@ -8,7 +8,7 @@ plugins {
 
 android {
     namespace = "com.liorapps.archerytrainer"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.liorapps.archerytrainer"

@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -55,14 +54,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.liorapps.archerytrainer.db.ShootingSessionEntity
 import com.liorapps.archerytrainer.db.ShootingSessionWithStats
 import com.liorapps.archerytrainer.navigation.ATNavKey
 import com.liorapps.archerytrainer.screens.util.ConfirmationDialog
 import com.liorapps.archerytrainer.screens.util.formatDate
 import com.liorapps.archerytrainer.screens.util.formatDateTime
 import com.liorapps.archerytrainer.screens.util.formatTime
-import timber.log.Timber
 import kotlin.math.abs
 
 // ---------------------------------------------------------------------------
@@ -136,7 +133,7 @@ fun ShootingSessionListScreen(
                 sessionToDelete = null
             },
             onDismiss = {
-                // User cancelled — simply close the dialog.  The card has
+                // User canceled — simply close the dialog.  The card has
                 // already snapped back, so no further UI action is needed.
                 sessionToDelete = null
             }
@@ -384,7 +381,7 @@ private fun ShootingSessionListTopBar(
     )
 }
 
-@Preview()
+@Preview
 @Composable
 private fun SwipeableSessionCardPreview1(
 ) {
@@ -398,7 +395,7 @@ private fun SwipeableSessionCardPreview1(
         onClick = {},
     )
 }
-@Preview()
+@Preview
 @Composable
 private fun SwipeableSessionCardPreview2(
 ) {

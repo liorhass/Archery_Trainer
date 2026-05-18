@@ -29,7 +29,7 @@ fun EditShootingSessionScreen(
     val uiState by viewModel.uiStateFlow.collectAsStateWithLifecycle()
 
     // Show dialogs (when necessary) above the scaffold
-    EditShootingSessionTabDialogs(viewModel = viewModel, uiState = uiState,)
+    EditShootingSessionTabDialogs(viewModel = viewModel, uiState = uiState)
 
     Scaffold(
         topBar = {
