@@ -23,6 +23,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.liorapps.archerytrainer.ui.theme.ArcheryTrainerTheme
 import com.liorapps.archerytrainer.R
 import com.liorapps.archerytrainer.ui.theme.AppTheme
@@ -32,7 +33,7 @@ fun AboutScreen(
     viewModel: AboutViewModel,
     onNavigateBack: () -> Unit,
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     AboutScreenContent(
         uiState = uiState,
         onNavigateBack = onNavigateBack
@@ -55,7 +56,7 @@ fun AboutScreenContent(
                     IconButton(onClick = onNavigateBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                            contentDescription = "Open Navigation Drawer"
+                            contentDescription = "Go back"
                         )
                     }
                 }

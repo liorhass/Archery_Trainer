@@ -21,6 +21,9 @@ interface ShootingSessionDao {
 
     // ── Read ─────────────────────────────────────────────────────────────────
 
+    @Query("SELECT * FROM shooting_sessions")
+    fun getAllShootingSessions(): List<ShootingSessionEntity>
+
     /**
      * Returns all shooting-sessions ordered by date-time descending (newest first),
      * each enriched with the total number of shots across its shooting-sets.

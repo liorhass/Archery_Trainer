@@ -21,6 +21,9 @@ sealed class ATNavKey(
     data class EditShootingSession(val sessionId: Long = -1) : ATNavKey(isNavigationRoot = false, requiresSlideGestures = false)
 
     @Serializable
+    data object ImportExport : ATNavKey(isNavigationRoot = true, requiresSlideGestures = false)
+
+    @Serializable
     data object About : ATNavKey(isNavigationRoot = true, requiresSlideGestures = false)
 
     // Screens that carry navigation data as part of the key

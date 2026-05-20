@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ImportExport
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Storage
@@ -43,6 +44,8 @@ import com.liorapps.archerytrainer.screens.about.AboutScreen
 import com.liorapps.archerytrainer.screens.about.AboutViewModel
 import com.liorapps.archerytrainer.screens.editsession.EditShootingSessionScreen
 import com.liorapps.archerytrainer.screens.editsession.EditShootingSessionViewModel
+import com.liorapps.archerytrainer.screens.importexport.ImportExportScreen
+import com.liorapps.archerytrainer.screens.importexport.ImportExportViewModel
 import com.liorapps.archerytrainer.screens.sessions.ShootingSessionListScreen
 import com.liorapps.archerytrainer.screens.sessions.ShootingSessionListViewModel
 import com.liorapps.archerytrainer.screens.settings.SettingsScreen
@@ -167,6 +170,16 @@ fun ArcheryTrainerNavHost(/*navigationViewModel: NavigationViewModel*/) {
                             )
                         }
 
+                        is ATNavKey.ImportExport -> NavEntry(key) {
+                            val viewModel: ImportExportViewModel = viewModel(
+                                factory = ImportExportViewModel.Factory(app)
+                            )
+                            ImportExportScreen(
+                                viewModel = viewModel,
+                                onNavigateBack = { navigationViewModel.navigateBack() },
+                            )
+                        }
+
                         is ATNavKey.About -> NavEntry(key) {
                             val viewModel: AboutViewModel = viewModel(
                                 factory = AboutViewModel.Factory(app)
@@ -244,6 +257,13 @@ fun AppDrawerContent(
             modifier = Modifier.padding(vertical = 12.dp, horizontal = 28.dp),
             thickness = 1.dp,
             color = MaterialTheme.colorScheme.outlineVariant
+        )
+
+        StandardDrawerItem(
+            label = "Import/Export",
+            icon = Icons.Default.ImportExport,
+            selected = currentRoute == ATNavKey.ImportExport,
+            onClick = { onNavigate(ATNavKey.ImportExport) }
         )
 
         StandardDrawerItem(

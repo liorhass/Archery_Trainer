@@ -22,6 +22,9 @@ interface ShootingSetDao {
 
     // ── Read ─────────────────────────────────────────────────────────────────
 
+    @Query("SELECT * FROM shooting_sets")
+    fun getAllShootingSets(): List<ShootingSetEntity>
+
     /**
      * Returns all shootingSets, ordered by date-time descending, each carrying its
      * parent shootingSession's date-time and comment.
