@@ -14,10 +14,13 @@ android {
         applicationId = "com.liorapps.archerytrainer"
         minSdk = 28
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 23
+        versionName = "1.1.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // Get build time so we can display it in the "About" screen
+        buildConfigField("Long", "BUILD_TIME", "${System.currentTimeMillis()}L")
     }
 
     buildTypes {
@@ -48,10 +51,6 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
-    }
-    defaultConfig {
-        // Get build time so we can display it in the "About" screen
-        buildConfigField("Long", "BUILD_TIME", "${System.currentTimeMillis()}L")
     }
 }
 

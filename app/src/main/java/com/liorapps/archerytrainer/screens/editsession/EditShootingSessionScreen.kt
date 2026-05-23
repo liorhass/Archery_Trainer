@@ -79,7 +79,10 @@ private fun EditShootingSessionTopBar(
         },
         title = {
             Text(
-                text = formatSessionDateTime(uiState.sessionDateTimeUtc),
+                text = when {
+                    (uiState.activeTab == ActiveTab.EDIT_SESSION) -> "Session"
+                    else -> "Sets"
+                },
                 style = MaterialTheme.typography.titleMedium,
             )
         },

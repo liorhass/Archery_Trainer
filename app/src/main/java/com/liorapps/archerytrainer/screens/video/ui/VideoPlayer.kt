@@ -46,7 +46,7 @@ fun VideoPlayer(
     val currentOnHorizontalDrag by rememberUpdatedState(onHorizontalDrag)
 
     BoxWithConstraints(
-        modifier = modifier.fillMaxSize(),
+        modifier = modifier.fillMaxSize().background(Color.Black),
         contentAlignment = Alignment.Center,
     ) {
         val context = LocalContext.current

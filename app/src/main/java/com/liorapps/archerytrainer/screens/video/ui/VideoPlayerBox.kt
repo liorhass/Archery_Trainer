@@ -9,10 +9,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Fullscreen
-import androidx.compose.material.icons.rounded.FullscreenExit
-import androidx.compose.material.icons.rounded.Pause
-import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.filled.Fullscreen
+import androidx.compose.material.icons.filled.FullscreenExit
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -25,30 +25,37 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.keepScreenOn
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.liorapps.archerytrainer.ArcheryTrainerDefaults
+import com.liorapps.archerytrainer.screens.util.IconButtonWithLongClick
+import com.liorapps.archerytrainer.screens.util.icons.Autoplay
+import com.liorapps.archerytrainer.screens.video.logic.DelayedVideoViewModel
 import com.liorapps.archerytrainer.ui.theme.ArcheryTrainerTheme
+import timber.log.Timber
 
 @Composable
 fun VideoPlayerBox(
     innerPadding: PaddingValues,
     videoResolution:  ArcheryTrainerDefaults.VideoResolution,
     isLandscape: Boolean,
-    isPlaying: Boolean,
+    playbackState: DelayedVideoViewModel.PlaybackState,
     bufferingTime: Int,
     onBufferingTimeTerminated: () -> Unit,
     delaySec: Int,
     onSurfaceReady: (Surface) -> Unit,
     onSurfaceDestroyed: () -> Unit,
     onTogglePlayback: () -> Unit,
+    onToggleLoopPlayback: () -> Unit,
     onToggleFullScreen: () -> Unit,
     onVideoDelayChange: (Int) -> Unit,
     appSliderPosition: Float,
@@ -83,7 +90,7 @@ fun VideoPlayerBox(
                     modifier = Modifier
                         .align(Alignment.Bottom)
                         .weight(1.0f)
-                        .visible(!isPlaying),
+                        .visible(playbackState == DelayedVideoViewModel.PlaybackState.PAUSED),
                     appSliderPosition = appSliderPosition,
                     onSliderMoved = onSingleFrameSliderMoved,
                     onSingleFrameForward = onSingleFrameForward,
@@ -97,9 +104,10 @@ fun VideoPlayerBox(
                         .padding(start = 0.dp, top = 0.dp, bottom = 0.dp, end = 12.dp),
                     isLandscape = true,
                     isFullScreen = false,
-                    isPlaying = isPlaying,
+                    playbackState = playbackState,
                     delay = delaySec,
                     onTogglePlayback = onTogglePlayback,
+                    onToggleLoopPlayback = onToggleLoopPlayback,
                     onToggleFullScreen = onToggleFullScreen,
                     onDelayChange = onVideoDelayChange,
                 )
@@ -113,7 +121,7 @@ fun VideoPlayerBox(
             ) {
                 SingleFrameMovementControl(
                     modifier = Modifier
-                        .visible(! isPlaying),
+                        .visible(playbackState == DelayedVideoViewModel.PlaybackState.PAUSED),
                     appSliderPosition = appSliderPosition,
                     onSliderMoved = onSingleFrameSliderMoved,
                     onSingleFrameForward = onSingleFrameForward,
@@ -126,9 +134,10 @@ fun VideoPlayerBox(
                         .padding(start = 0.dp, top = 0.dp, bottom = 12.dp, end = 0.dp),
                     isLandscape = false,
                     isFullScreen = false,
-                    isPlaying = isPlaying,
+                    playbackState = playbackState,
                     delay = delaySec,
                     onTogglePlayback = onTogglePlayback,
+                    onToggleLoopPlayback = onToggleLoopPlayback,
                     onToggleFullScreen = onToggleFullScreen,
                     onDelayChange = onVideoDelayChange,
                 )
@@ -162,16 +171,17 @@ fun ControlBar(
     modifier: Modifier = Modifier,
     isLandscape: Boolean,
     isFullScreen: Boolean,
-    isPlaying: Boolean,
+    playbackState: DelayedVideoViewModel.PlaybackState,
     delay: Int,
-    onTogglePlayback: () -> Unit = {},
-    onToggleFullScreen: () -> Unit = {},
-    onDelayChange: (Int) -> Unit = {}
+    onTogglePlayback: () -> Unit,
+    onToggleLoopPlayback: () -> Unit,
+    onToggleFullScreen: () -> Unit,
+    onDelayChange: (Int) -> Unit,
 ) {
     Surface(
         modifier = modifier,
         shape = MaterialTheme.shapes.extraLarge,
-        color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.5f),
+        color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.3f),
         tonalElevation = 4.dp
     ) {
         if (isLandscape) {
@@ -180,13 +190,14 @@ fun ControlBar(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                ControlIcons(
-                    isPlaying = isPlaying,
+                MainControlButtons(
+                    playbackState = playbackState,
                     isFullScreen = isFullScreen,
                     delay = delay,
                     onTogglePlayback = onTogglePlayback,
+                    onToggleLoopPlayback = onToggleLoopPlayback,
                     onToggleFullScreen = onToggleFullScreen,
-                    onDelayChange = onDelayChange,
+                    onDelayChanged = onDelayChange,
                 )
             }
         } else {
@@ -195,13 +206,14 @@ fun ControlBar(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                ControlIcons(
-                    isPlaying = isPlaying,
+                MainControlButtons(
+                    playbackState = playbackState,
                     isFullScreen = isFullScreen,
                     delay = delay,
                     onTogglePlayback = onTogglePlayback,
+                    onToggleLoopPlayback = onToggleLoopPlayback,
                     onToggleFullScreen = onToggleFullScreen,
-                    onDelayChange = onDelayChange,
+                    onDelayChanged = onDelayChange,
                 )
             }
         }
@@ -209,24 +221,54 @@ fun ControlBar(
 }
 
 @Composable
-fun ControlIcons(
-    isPlaying: Boolean,
+private fun MainControlButtons(
+    playbackState: DelayedVideoViewModel.PlaybackState,
     isFullScreen: Boolean,
     delay: Int,
     onTogglePlayback: () -> Unit,
+    onToggleLoopPlayback: () -> Unit,
     onToggleFullScreen: () -> Unit,
-    onDelayChange: (Int) -> Unit,
+    onDelayChanged: (Int) -> Unit,
 ) {
     // Play/Pause button
     IconButton(onClick = onTogglePlayback) {
-        Icon(
-            imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-            tint = MaterialTheme.colorScheme.onSurface,
-            contentDescription = if (isPlaying) "Pause" else "Play"
-        )
+        if (playbackState == DelayedVideoViewModel.PlaybackState.PLAYING) {
+            Icon(
+                imageVector = Icons.Default.Pause,
+                tint = MaterialTheme.colorScheme.onSurface,
+                contentDescription = "Pause",
+            )
+        } else {
+            Icon(
+                imageVector = Icons.Default.PlayCircle,
+                tint = Color.Red,
+                contentDescription = "Play"
+            )
+        }
     }
 
-    var showDelayDialog by remember { mutableStateOf(false) }
+    // Loop replay
+    IconButtonWithLongClick(
+        onClick = onToggleLoopPlayback,
+        onLongClick = onToggleLoopPlayback,
+    ) {
+        if (playbackState != DelayedVideoViewModel.PlaybackState.LOOP_REPLAYING) {
+            Icon(
+                imageVector = Autoplay,
+                tint = MaterialTheme.colorScheme.onSurface,
+                contentDescription = "Play in loop"
+            )
+        } else {
+            Icon(
+                imageVector = Icons.Default.Pause,
+                tint = MaterialTheme.colorScheme.onSurface,
+                contentDescription = "Pause"
+            )
+        }
+    }
+
+    // Delay
+    var showDelayDialog by rememberSaveable { mutableStateOf(false) }
     TextButton(onClick = { showDelayDialog = true }) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
@@ -242,9 +284,10 @@ fun ControlIcons(
         }
     }
 
+    // Full screen
     IconButton(onClick = onToggleFullScreen) {
         Icon(
-            imageVector = if (isFullScreen) Icons.Rounded.FullscreenExit else Icons.Rounded.Fullscreen,
+            imageVector = if (isFullScreen) Icons.Default.FullscreenExit else Icons.Default.Fullscreen,
             contentDescription = if (isFullScreen) "Exit full screen" else "Full screen",
             tint = MaterialTheme.colorScheme.onSurface,
         )
@@ -254,7 +297,7 @@ fun ControlIcons(
         DelayDialog(
             currentValue = delay,
             onDismiss = { showDelayDialog = false },
-            onValueChange = onDelayChange
+            onValueChanged = onDelayChanged
         )
     }
 }
@@ -263,7 +306,7 @@ fun ControlIcons(
 fun DelayDialog(
     currentValue: Int,
     onDismiss: () -> Unit,
-    onValueChange: (Int) -> Unit
+    onValueChanged: (Int) -> Unit
 ) {
     val origDelay = remember {currentValue}
 
@@ -276,7 +319,7 @@ fun DelayDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = { onValueChange(origDelay); onDismiss()} ) {
+            TextButton(onClick = { onValueChanged(origDelay); onDismiss()} ) {
                 Text("Cancel")
             }
         },
@@ -285,9 +328,9 @@ fun DelayDialog(
                 Text(text = "Delay: $currentValue seconds")
                 Slider(
                     value = currentValue.toFloat(),
-                    onValueChange = { onValueChange(it.toInt()) },
+                    onValueChange = { onValueChanged(it.toInt()) },
                     valueRange = 0f..30f, //todo: max should come from config
-                    steps = 29
+                    steps = 0
                 )
             }
         }
@@ -314,13 +357,14 @@ fun VideoPlayerBoxPreview() {
             innerPadding = PaddingValues(0.dp),
             videoResolution = ArcheryTrainerDefaults.VideoResolution.HD_1280x720,
             isLandscape = true,
-            isPlaying = true,
+            playbackState = DelayedVideoViewModel.PlaybackState.LOOP_REPLAYING,
             bufferingTime = 22,
             onBufferingTimeTerminated = {},
             delaySec = 5,
             onSurfaceReady = {},
             onSurfaceDestroyed = {},
             onTogglePlayback = {},
+            onToggleLoopPlayback = {},
             onToggleFullScreen = {},
             onVideoDelayChange = {},
             appSliderPosition = 55f,
@@ -342,13 +386,14 @@ fun VideoPlayerBoxPreview1() {
             innerPadding = PaddingValues(0.dp),
             videoResolution = ArcheryTrainerDefaults.VideoResolution.HD_1280x720,
             isLandscape = false,
-            isPlaying = false,
+            playbackState = DelayedVideoViewModel.PlaybackState.LOOP_REPLAYING,
             bufferingTime = 22,
             onBufferingTimeTerminated = {},
             delaySec = 10,
             onSurfaceReady = {},
             onSurfaceDestroyed = {},
             onTogglePlayback = {},
+            onToggleLoopPlayback = {},
             onToggleFullScreen = {},
             onVideoDelayChange = {},
             appSliderPosition = 55f,

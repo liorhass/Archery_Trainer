@@ -89,7 +89,6 @@ fun BufferingCountdown(
     fontSize: TextUnit = 36.sp,
 ) {
     // ── 1. Timing state ──────────────────────────────────────────────────────
-
     val totalMs = remember(durationSeconds) { durationSeconds * 1_000f }
     var elapsedMs by remember { mutableFloatStateOf(0f) }
 
@@ -150,7 +149,6 @@ fun BufferingCountdown(
         ) {
             // Ring drawn on a Compose Canvas
             Canvas(modifier = Modifier.size(ringSize)) {
-
                 val strokePx = ringStrokeWidth.toPx()
                 val inset = strokePx / 2f
 

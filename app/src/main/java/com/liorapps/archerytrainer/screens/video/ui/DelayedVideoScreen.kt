@@ -13,12 +13,14 @@ import android.content.res.Configuration
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.liorapps.archerytrainer.screens.video.logic.DelayedVideoViewModel
+import timber.log.Timber
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalPermissionsApi::class)
 @Composable
@@ -52,7 +54,7 @@ fun DelayedVideoScreen(
     val videoResolution by viewModel.videoResolution.collectAsStateWithLifecycle()
     val settings by viewModel.settingsFlow.collectAsStateWithLifecycle()
     val isFullScreen by viewModel.isFullScreen.collectAsStateWithLifecycle()
-    val bufferingTime by viewModel.bufferingTime.collectAsStateWithLifecycle()
+    val bufferingTime by viewModel.isBuffering.collectAsStateWithLifecycle()
     val singleFrameSliderPosition by viewModel.singleFrameSliderPositionFlow.collectAsStateWithLifecycle()
     val horizontalDragSensitivity = viewModel.horizontalDragSensitivity
 
@@ -81,12 +83,13 @@ fun DelayedVideoScreen(
                 innerPadding = PaddingValues(0.dp),
                 videoResolution = videoResolution,
                 isLandscape = isLandscape,
-                isPlaying = viewModel.playbackState == DelayedVideoViewModel.PlaybackState.PLAYING,
+                playbackState = viewModel.playbackState,
                 bufferingTime = bufferingTime,
                 delaySec = settings.delaySec,
                 onSurfaceReady = viewModel::onSurfaceReady,
                 onSurfaceDestroyed = viewModel::onSurfaceDestroyed,
                 onTogglePlayback = viewModel::onTogglePlayback,
+                onToggleLoopPlayback = viewModel::onToggleLoopPlayback,
                 onToggleFullScreen = viewModel::toggleIsFullScreen,
                 onVideoDelayChange = viewModel::onDelayChange,
                 appSliderPosition = singleFrameSliderPosition,
@@ -112,12 +115,13 @@ fun DelayedVideoScreen(
                     innerPadding = innerPadding,
                     videoResolution = videoResolution,
                     isLandscape = isLandscape,
-                    isPlaying = viewModel.playbackState == DelayedVideoViewModel.PlaybackState.PLAYING,
+                    playbackState = viewModel.playbackState,
                     bufferingTime = bufferingTime,
                     delaySec = settings.delaySec,
                     onSurfaceReady = viewModel::onSurfaceReady,
                     onSurfaceDestroyed = viewModel::onSurfaceDestroyed,
                     onTogglePlayback = viewModel::onTogglePlayback,
+                    onToggleLoopPlayback = viewModel::onToggleLoopPlayback,
                     onToggleFullScreen = viewModel::toggleIsFullScreen,
                     onVideoDelayChange = viewModel::onDelayChange,
                     appSliderPosition = singleFrameSliderPosition,
@@ -197,7 +201,7 @@ private fun DelayedVideoTopBar(
     onNavigateToSettings: () -> Unit,
 ) {
     TopAppBar(
-        title = { Text("Archery Trainer") },
+        title = { Text("Capture Video") },
         navigationIcon = {
             IconButton(onClick = onOpenDrawer) {
                 Icon(Icons.Default.Menu, "Open drawer")
@@ -205,7 +209,7 @@ private fun DelayedVideoTopBar(
         },
         actions = {
             IconButton(onClick = onNavigateToSettings) {
-                Icon(Icons.Rounded.Settings, contentDescription = "Settings")
+                Icon(Icons.Default.Settings, contentDescription = "Settings")
             }
         }
     )

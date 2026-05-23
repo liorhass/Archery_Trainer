@@ -322,7 +322,7 @@ class NalRingBuffer(
         val count: Int
             get() = metaCount
 
-        /** Get the PTS of a frame */
+        /** Get the PTS of a frame in uSec */
         fun getFramePts(index: Int): Long = metaPTS[linearIndexToMetaIndex(index)]
 
         /**

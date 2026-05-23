@@ -2,6 +2,15 @@ package com.liorapps.archerytrainer.screens.video.logic
 
 import android.Manifest
 import android.app.Application
+import android.content.Context
+import android.graphics.SurfaceTexture
+import android.hardware.camera2.CameraCharacteristics
+import android.hardware.camera2.CameraDevice
+import android.hardware.camera2.CameraManager
+import android.os.Handler
+import android.os.HandlerThread
+import android.util.Range
+import android.util.Size
 import android.view.Surface
 import androidx.annotation.RequiresPermission
 import androidx.camera.core.CameraSelector
@@ -12,11 +21,10 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.application
 import androidx.lifecycle.viewModelScope
 import com.liorapps.archerytrainer.ArcheryTrainerDefaults
 import com.liorapps.archerytrainer.screens.settings.SettingsRepository
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
@@ -31,8 +39,11 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import timber.log.Timber
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -69,7 +80,7 @@ class DelayedVideoViewModel(application: Application, val settingsRepo: Settings
     // ─────────────────────────────────────────────────────────────────────────
     // TODO LH: convert all of these to StateFlow (like cameraPermissionState)
 
-    // Camera Selector State
+    // Camera Selector State   todo: implement this
     var selectedCamera by mutableStateOf(CameraSelector.DEFAULT_BACK_CAMERA)
         private set
 
@@ -79,7 +90,7 @@ class DelayedVideoViewModel(application: Application, val settingsRepo: Settings
 
     /** Whether a "Buffering" countdown indicator should be displayed, and for how long (0 - don't display) */
     private val _isBuffering = MutableStateFlow(0)
-    val bufferingTime = _isBuffering.asStateFlow()
+    val isBuffering = _isBuffering.asStateFlow()
 
 //    /**
 //     * User-selected delay in seconds. Readable from [Dispatchers.IO] via the lambda passed
@@ -94,8 +105,8 @@ class DelayedVideoViewModel(application: Application, val settingsRepo: Settings
         .stateIn(viewModelScope, SharingStarted.Lazily, SettingsRepository.Settings())
 
     /** Non-null when a fatal pipeline error has occurred. The UI should surface this message. */
-    var errorMessage: String? by mutableStateOf(null)
-        private set
+//    var errorMessage: String? by mutableStateOf(null)
+//        private set
 
     var horizontalDragSensitivity: Float by mutableFloatStateOf(60f) //todo from settings
         private set
@@ -106,9 +117,20 @@ class DelayedVideoViewModel(application: Application, val settingsRepo: Settings
     private val _cameraPermissionStateFlow =
         MutableStateFlow<CameraPermissionState>(CameraPermissionState.CHECKING)
     val cameraPermissionStateFlow = _cameraPermissionStateFlow.asStateFlow()
-    fun onCameraPermissionGranted() { _cameraPermissionStateFlow.update { CameraPermissionState.GRANTED } }
+
+    /** Called from the Compose UI on first composition (if permission was granted), and
+     *  whenever the permission is granted afterward */
+    @RequiresPermission(Manifest.permission.CAMERA)
+    fun onCameraPermissionGranted() {
+        if (_cameraPermissionStateFlow.value == CameraPermissionState.GRANTED) return
+        _cameraPermissionStateFlow.update { CameraPermissionState.GRANTED }
+        viewModelScope.launch {
+            gCameraDevice = selectAndOpenCameraDevice()
+        }
+    }
     fun onCameraPermissionDenied() { _cameraPermissionStateFlow.update { CameraPermissionState.DENIED } }
 
+    var gCameraDevice: CameraDevice? = null
 
     // ─────────────────────────────────────────────────────────────────────────
     // Pipeline-internal shared state
@@ -131,8 +153,15 @@ class DelayedVideoViewModel(application: Application, val settingsRepo: Settings
      */
     private val cameraAndCodecConfig = CameraAndCodecConfig()
 
+    val delayedVideoPlayer =
+        DelayedVideoPlayer(cameraAndCodecConfig, ringBuffer, viewModelScope)
+
     val singleFrameDisplayer =
         SingleFrameDisplayer(cameraAndCodecConfig, ringBuffer.AsLinearBuffer())
+
+    val loopPlayer =
+        LoopPlayer(viewModelScope, cameraAndCodecConfig,
+            ringBuffer.AsLinearBuffer(), speed = 1.0f)
 
     /**
      * Signals the decoder to execute the jump sequence (§9) when the user reduces [delaySec].
@@ -152,12 +181,6 @@ class DelayedVideoViewModel(application: Application, val settingsRepo: Settings
      * and is destroyed on configuration changes (§10.1).
      */
     private var currentSurface: Surface? = null
-
-    /** Coroutine job for [EncoderCoroutine.run]. Null when the pipeline is stopped. */
-    private var encoderJob: Job? = null
-
-    /** Coroutine job for [DecoderCoroutine.run]. Null when stopped or surface is unavailable. */
-    private var decoderJob: Job? = null
 
     private val _videoResolution = MutableStateFlow<ArcheryTrainerDefaults.VideoResolution>(
         ArcheryTrainerDefaults.VideoResolution.HD_1280x720
@@ -208,34 +231,74 @@ class DelayedVideoViewModel(application: Application, val settingsRepo: Settings
     @RequiresPermission(Manifest.permission.CAMERA)
     fun onTogglePlayback() {
         viewModelScope.launch(Dispatchers.IO) {
-            Timber.d("#######VM togglePlayback() currentPlaybackState=$playbackState")
-            when (playbackState) {
-
-                PlaybackState.PAUSED -> {
-                    playbackState = PlaybackState.PLAYING
-                    singleFrameDisplayer.release()
-                    ringBuffer.reset()
-                    startPipeline()
-                    _isBuffering.update { settingsFlow.value.delaySec } // Start the on screen "buffering" countdown
-                }
-
-                PlaybackState.PLAYING -> {
-                    playbackState = PlaybackState.PAUSED
-                    stopPipeline()
-                    if (currentSurface != null) {
-                        if (singleFrameDisplayer.initialize(currentSurface!!)) {
-                            singleFrameDisplayer.seekToLastFrame()  // When we pause, we display the last captured frame
-                            Timber.d("#######VM singleFrameDisplayer _singleFrameSliderPositionFlow.value = 1.0f")
-                            _singleFrameSliderPositionFlow.update { 1.0f } // When we pause we display the last frame captured
-//                            singleFrameDisplayer.displayFrameByRelativeLocation(1.0f)
-                        } else {
-                            Timber.w("#######VM singleFrameDisplayer.initialize() failed")
-                        }
-                    } else {
-                        Timber.e("#######VM currentSurface=null")
+            Timber.d("####VM togglePlayback() currentPlaybackState=$playbackState")
+            val surface = currentSurface
+            if (surface == null) {
+                Timber.e("####VM onTogglePlayback(): currentSurface=null")
+            } else {
+                when (playbackState) {
+                    PlaybackState.PLAYING -> { // Click on "Pause" while playing
+                        playbackState = PlaybackState.PAUSED
+                        _isBuffering.update { 0 } // Stop the on screen "buffering" countdown in case it's still on
+                        delayedVideoPlayer.stop()
+                        startSingleFrameDisplay(surface)
+                    }
+                    PlaybackState.PAUSED -> { // Click on "Play" while paused
+                        singleFrameDisplayer.release()
+                        playbackState = PlaybackState.PLAYING
+                        startDelayedVideoCapturing(surface)
+                    }
+                    PlaybackState.LOOP_REPLAYING -> {
                     }
                 }
             }
+        }
+    }
+
+    var loopPlayerJob: Job? = null
+    fun onToggleLoopPlayback() {
+        Timber.d("####LP onToggleLoopPlayback() state=${playbackState}")
+        val surface = currentSurface
+        if (surface == null) {
+            Timber.e("####VM onTogglePlayback(): currentSurface=null")
+        } else {
+            when (playbackState) {
+                PlaybackState.PAUSED -> {
+                    playbackState = PlaybackState.LOOP_REPLAYING
+                    singleFrameDisplayer.release()
+                    loopPlayerJob = loopPlayer.startPlaybackLoop(surface)
+                }
+                PlaybackState.LOOP_REPLAYING -> {
+                    playbackState = PlaybackState.PAUSED
+                    loopPlayerJob?.cancel(); loopPlayerJob = null
+                    loopPlayer.release()
+                    viewModelScope.launch(Dispatchers.IO) {
+                        startSingleFrameDisplay(surface)
+                    }
+                }
+                PlaybackState.PLAYING -> {
+                }
+            }
+        }
+    }
+
+    @RequiresPermission(Manifest.permission.CAMERA)
+    private suspend fun startDelayedVideoCapturing(surface: Surface) {
+        ringBuffer.reset()
+        if (gCameraDevice == null) {
+            Timber.d("####VM startDelayedVideoCapturing(): gCameraDevice=null - reopening")
+            gCameraDevice = selectAndOpenCameraDevice()
+        }
+        delayedVideoPlayer.start(surface, gCameraDevice, cameraHandler, cameraThread, settingsFlow.value.delaySec)
+        _isBuffering.update { settingsFlow.value.delaySec } // Start the on screen "buffering" countdown
+    }
+    private suspend fun startSingleFrameDisplay(surface: Surface) {
+        if (singleFrameDisplayer.initialize(surface)) {
+            singleFrameDisplayer.displayLastFrame()  // When we pause, we display the last captured frame
+            Timber.d("####VM singleFrameDisplayer _singleFrameSliderPositionFlow.value = 1.0f")
+            _singleFrameSliderPositionFlow.update { 1.0f } // When we pause we display the last frame captured
+        } else {
+            Timber.w("####VM singleFrameDisplayer.initialize() failed")
         }
     }
 
@@ -257,7 +320,7 @@ class DelayedVideoViewModel(application: Application, val settingsRepo: Settings
     fun onSurfaceReady(surface: Surface) {
         Timber.d("#######VM onSurfaceReady() playbackState=$playbackState")
         currentSurface = surface
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             // Sometimes the surface gets destroyed and then a new one becomes ready in quick
             // succession. This happens in scenarios such as:
             //   - The phone is rotated and the screen gets recreated
@@ -267,153 +330,46 @@ class DelayedVideoViewModel(application: Application, val settingsRepo: Settings
             // the tearing down of the decoder completes, and this causes a mess.
             // This is a simple Hack to prevent this.
             delay(200)
-            if (playbackState == PlaybackState.PLAYING) {
-               if (decoderJob?.isActive != true) {
-                   launchDecoderJob(surface)
-               }
-            } else { // Playback is paused. The screen displays one frame with singleFrameDisplayer
-                withContext(Dispatchers.IO) {
+            when (playbackState) {
+                PlaybackState.PLAYING -> {
+                    delayedVideoPlayer.launchDecoderJob(surface, settingsFlow.value.delaySec)
+                }
+                PlaybackState.PAUSED -> {
                     if (singleFrameDisplayer.initialize(surface)) {
                         singleFrameDisplayer.redisplayLastDisplayedFrame()
                     } else {
-                        Timber.w("#######VM singleFrameDisplayer.setupDecoder() failed")
+                        // This is fine if no video has been captured yet (we don't have camera and codec config yet)
+                        Timber.d("#######VM singleFrameDisplayer.setupDecoder() failed")
                     }
+                }
+                PlaybackState.LOOP_REPLAYING -> {
+                    loopPlayer.startPlaybackLoop(surface)
                 }
             }
         }
     }
 
     /**
-     * Called by the Compose UI when [androidx.compose.foundation.AndroidExternalSurface] destroys its surface
-     * (e.g. on a configuration change such as screen rotation).
+     * Called by the Compose UI when its surface is destroyed (e.g. on a configuration change
+     * such as screen rotation)
      *
      * The decoder is torn down because its output surface is now invalid.
      * The encoder keeps running - the camera capture continues uninterrupted so the
      * ring buffer stays current during the rotation.  When the new surface is provided
-     * via [onSurfaceReady], a fresh decoder job is launched automatically.
+     * via [onSurfaceReady], a fresh decoder job is launched automatically
      */
     fun onSurfaceDestroyed() {
-        Timber.d("#######VM onSurfaceDestroyed()")
-        decoderJob?.cancel()
-        decoderJob = null
-        singleFrameDisplayer.release()
+        Timber.d("####VM onSurfaceDestroyed()")
         currentSurface = null
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // Pipeline lifecycle  (private)
-    // ─────────────────────────────────────────────────────────────────────────
-
-    /**
-     * Starts the encoder and decoder pipeline:
-     *
-     * 1. Resets shared state so the new session starts clean:
-     *    • [ringBuffer] is reset (stale frames from any prior session are discarded).
-     *    • [codecConfigDataHolder][0] is cleared so the decoder waits for fresh SPS/PPS.
-     * 2. Sets [playbackState] to PLAYING.
-     * 3. Launches the encoder job.
-     * 4. Launches the decoder job if a surface is already available; otherwise the decoder
-     *    will be launched from [onSurfaceReady] when the surface arrives.
-     */
-    @RequiresPermission(Manifest.permission.CAMERA)
-    private fun startPipeline() {
-        Timber.d("#######VM startPipeline()")
-        // Discard any stale ring-buffer data and codec config from a prior session.
-        ringBuffer.reset()
-        cameraAndCodecConfig.invalidateCodecConfig()
-        errorMessage = null
-
-        launchEncoderJob()
-
-        // Launch decoder only if we already have a surface. If not, onSurfaceReady()
-        // will launch it once AndroidExternalSurface delivers the surface.
-        Timber.d("#######VM startPipeline() currentSurface=$currentSurface")
-        currentSurface?.let { surface -> launchDecoderJob(surface) }
-    }
-
-    /**
-     * Stops the pipeline, cancelling both coroutine jobs:
-     *
-     * • Encoder job is canceled first, which triggers its `finally` block:
-     *   close session → close camera → stop+release encoder.
-     * • Decoder job is canceled next.
-     * • [playbackState] is set to PAUSED.
-     * • The ring buffer is **not** reset here; that happens at the start of the
-     *   next [startPipeline] call (or in [onCleared]).
-     */
-    private suspend fun stopPipeline() {
-        Timber.d(Throwable(), "#######VM stopPipeline(): Current call stack trace")
-        // Cancellation is cooperative: each coroutine's finally block handles its own teardown.
-        encoderJob?.cancel()
-        encoderJob?.join()
-        encoderJob = null
-
-        decoderJob?.cancel()
-        decoderJob?.join()
-        decoderJob = null
-
-//        playbackState = PlaybackState.PAUSED
-    }
-//    fun stopPipeline() {
-//        // Architecture §10.2 teardown order:
-//        encoderJob?.cancel()   // 1. Stops camera + encoder
-//        decoderJob?.cancel()   // 2. Stops decoder
-//        viewModelScope.launch {
-//            encoderJob?.join()
-//            decoderJob?.join()
-//            ringBuffer.reset() // Only after BOTH coroutines have fully stopped
-//        }
-//    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // Job launchers
-    // ─────────────────────────────────────────────────────────────────────────
-
-    @RequiresPermission(Manifest.permission.CAMERA)
-    private fun launchEncoderJob() {
-        encoderJob = viewModelScope.launch(Dispatchers.IO + CoroutineName("ATEncoderCoroutine")) {
-            try {
-                EncoderCoroutine(
-                    context = getApplication(),
-                    ringBuffer = ringBuffer,
-                    cameraAndCodecConfig = cameraAndCodecConfig,
-//                    codecConfigDataHolder = codecConfigDataHolder,
-//                    onError               = ::handleEncoderError,
-                ).run()
-            } catch (e: CancellationException) {
-                Timber.d(e, "#######VM encoder CancellationException")
-            } catch (e: Exception) {
-                Timber.e(e, "#######VM EncoderCoroutine failed")
-//                handleEncoderError(e)
-                encoderJob?.cancel()
-                encoderJob = null
+        when (playbackState) {
+            PlaybackState.PLAYING -> {
+                delayedVideoPlayer.stopDecoderJob()
             }
-        }
-    }
-
-//    val decoder = MediaCodec.createDecoderByType(MediaFormat.MIMETYPE_VIDEO_AVC)
-    private fun launchDecoderJob(surface: Surface) {
-        decoderJob = viewModelScope.launch(Dispatchers.IO + CoroutineName("ATDecoderCoroutine")) {
-            try {
-                Timber.d("#######VM launchDecoderJob()")
-                DecoderCoroutine(
-//                    decoder               = decoder,
-                    nalRingBuffer = ringBuffer,
-                    cameraAndCodecConfig = cameraAndCodecConfig,
-                    outputSurface = surface,
-                    delaySecProvider = { settingsFlow.value.delaySec },
-//                    jumpChannel           = jumpChannel,
-//                    onError               = ::handleDecoderError,
-                ).run()
-            } catch (e: CancellationException) {
-                // No need to stop and release the decoder here because DecoderCoroutine.run()
-                // has a finally block that takes care of that before we get here
-                Timber.d(e, "#######VM decoder CancellationException")
-            } catch (e: Exception) {
-                Timber.e(e, "#######VM DecoderCoroutine failed")
-//                handleDecoderError(e)
-                decoderJob?.cancel()
-                decoderJob = null
+            PlaybackState.PAUSED -> {
+                singleFrameDisplayer.release()
+            }
+            PlaybackState.LOOP_REPLAYING -> {
+                loopPlayer.release()
             }
         }
     }
@@ -471,7 +427,8 @@ class DelayedVideoViewModel(application: Application, val settingsRepo: Settings
         Timber.d("#######VM onCleared()")
         singleFrameDisplayer.release()
         viewModelScope.launch(Dispatchers.IO) {
-            stopPipeline()
+            delayedVideoPlayer.stop()
+            loopPlayer.release()
             ringBuffer.reset()
         }
     }
@@ -565,6 +522,144 @@ class DelayedVideoViewModel(application: Application, val settingsRepo: Settings
         _isBuffering.update { 0 }
     }
 
+    fun onLoopReplayButtonClicked() {
+        Timber.d("#### onLoopReplayButtonClicked")
+    }
+
+    // Camera2 callbacks require a looper - use a dedicated HandlerThread
+    val cameraThread = HandlerThread("ArcheryTrainer-Camera").also { it.start() }
+    val cameraHandler = Handler(cameraThread.looper)
+    /**
+     * Open the first front-facing camera, or the first available
+     * camera if no front-facing camera is found.
+     */
+    @RequiresPermission(Manifest.permission.CAMERA)
+    private suspend fun selectAndOpenCameraDevice(): CameraDevice {
+        val cameraManager = application.getSystemService(Context.CAMERA_SERVICE) as CameraManager
+        Timber.d("####VM Device has ${cameraManager.cameraIdList.size} cameras")
+
+        val ids = cameraManager.cameraIdList
+        for (cameraId in ids) {
+            val chars: CameraCharacteristics = cameraManager.getCameraCharacteristics(cameraId)
+            Timber.d("####VM camera ID=$cameraId  Characteristics: $chars")
+            logCameraCharacteristics(chars)
+        }
+
+        // TODO: LH cameraId should be a parameter passed into this function
+        val cameraId = ids.firstOrNull { id ->
+            cameraManager.getCameraCharacteristics(id)
+                .get(CameraCharacteristics.LENS_FACING) == CameraCharacteristics.LENS_FACING_FRONT
+        } ?: ids.first()
+        val chars: CameraCharacteristics = cameraManager.getCameraCharacteristics(cameraId)
+        val sensorOrientation = chars.get(CameraCharacteristics.SENSOR_ORIENTATION) ?: 270
+        Timber.d("####VM selectCamera() selected cameraId: $cameraId  sensorOrientation: $sensorOrientation")
+
+        val cameraDevice = openCamera(cameraManager, cameraId, cameraHandler)
+        return cameraDevice
+    }
+
+    private fun logCameraCharacteristics(cameraChars: CameraCharacteristics) {
+        Timber.d("####VM camera LENS_FACING=${cameraChars.get(CameraCharacteristics.LENS_FACING)}")
+        val map = cameraChars.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
+        val videoSizes: Array<Size>? = map?.getOutputSizes(SurfaceTexture::class.java)
+        videoSizes?.forEach { size ->
+//            Timber.d("####VM Supported Resolution: ${size.width} x ${size.height}")
+        }
+
+        // Retrieve the list of supported FPS ranges
+        val fpsRanges: Array<Range<Int>>? = cameraChars.get(
+            CameraCharacteristics.CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES
+        )
+        fpsRanges?.forEach { range ->
+            // Example: [15, 30] means the camera can vary between 15 and 30 fps
+            // Example: [30, 30] means a fixed frame rate of 30 fps
+//            Timber.d("####VM Supported FPS range: ${range.lower} - ${range.upper}")
+        }
+    }
+
+    /**
+     * Opens the camera with [cameraId] and suspends until [CameraDevice.StateCallback.onOpened]
+     * fires. Cancellation closes the device if it was already opened.
+     */
+    @RequiresPermission(Manifest.permission.CAMERA)
+    private suspend fun openCamera(
+        manager: CameraManager,
+        cameraId: String,
+        handler: Handler,
+    ): CameraDevice = suspendCancellableCoroutine { cont ->
+        Timber.d("####VM openCamera()")
+        manager.openCamera(
+            cameraId,
+            object : CameraDevice.StateCallback() {
+                override fun onOpened(cameraDevice: CameraDevice) {
+                    if (cont.isActive) {
+                        Timber.d("####VM openCamera() camera=$cameraDevice")
+                        cont.resume(cameraDevice)
+                    } else {
+                        cameraDevice.close()
+                        cont.resumeWithException(IllegalStateException("openCamera() continuation is not active"))
+                    }
+                }
+
+                override fun onClosed(cameraDevice: CameraDevice) {
+                    super.onClosed(cameraDevice)
+                    Timber.d("####VM Camera closed")
+                    gCameraDevice = null
+                }
+
+                override fun onDisconnected(cameraDevice: CameraDevice) {
+                    cameraDevice.close()
+                    Timber.w("####### ####VM openCamera() onDisconnected cont.isActive=${cont.isActive}")
+//                    if (cont.isActive) {
+                    cont.resumeWithException(
+                        IllegalStateException("Camera disconnected during open. cameraId=$cameraId")
+                    )
+//                    } else {
+//                        // Camera disconnected after it was already opened.
+//                        // Notify the onError callback so the pipeline stops cleanly.
+//                        onError(IllegalStateException("Camera $cameraId disconnected"))
+//                    }
+                }
+
+                override fun onError(cameraDevice: CameraDevice, error: Int) {
+                    // This may be called when the phone's screen is locked (error code
+                    // is 3 - ERROR_CAMERA_DISABLED). We don't try to clean up here because
+                    // it's likely that the ViewModel is going to be destroyed and its onClear()
+                    // function will take care of everything
+                    Timber.w("####VM cameraCallback.onError() cont.isActive=${cont.isActive} error=$error")
+                    cameraDevice.close()
+//                    if (cont.isActive) {
+//                    cont.resumeWithException(
+//                        RuntimeException("Camera open error:  cameraId=$cameraId error=$error")
+//                    )
+//                    } else {
+//                        onError(RuntimeException("Camera $cameraId error: $error"))
+//                    }
+                }
+            },
+            handler
+        )
+
+        /* device closed in finally block of run() if open */
+        cont.invokeOnCancellation { throwable ->
+            Timber.w("####### ####### openCamera() cont.invokeOnCancellation")
+            Timber.w("####### ####### cont.invokeOnCancellation err: ${if (throwable != null) throwable.message else "null"}")
+        }
+    }
+
+    init {
+        viewModelScope.launch {
+            settingsFlow.collect {
+                // This is called every time the settings change
+                Timber.d("####VM Settings changed")
+            }
+        }
+    }
+
+    enum class PlaybackState { PAUSED, PLAYING, LOOP_REPLAYING }
+
+    enum class CameraPermissionState { CHECKING, GRANTED, DENIED }
+
     class Factory(
         private val application: Application,
         private val repo: SettingsRepository
@@ -577,16 +672,5 @@ class DelayedVideoViewModel(application: Application, val settingsRepo: Settings
             throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
         }
     }
-
-    /**
-     * PlaybackState — the only two states visible to the UI.
-     *
-     * The decoder's internal PLAYING / FROZEN / CATCHING_UP state machine is an
-     * implementation detail of [DecoderCoroutine] and is intentionally not
-     * surfaced here.
-     */
-    enum class PlaybackState { PAUSED, PLAYING }
-
-    enum class CameraPermissionState { CHECKING, GRANTED, DENIED }
 }
 

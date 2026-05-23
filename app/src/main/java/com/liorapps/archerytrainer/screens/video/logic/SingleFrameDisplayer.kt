@@ -43,7 +43,7 @@ class SingleFrameDisplayer(
 ) {
     private var decoder: MediaCodec? = null
 
-    // A flag (that we can wait to become true) indicating whether the decoder is started or not
+    /** A flag (that we can wait to become true) indicating whether the decoder is started or not */
     val decoderStartedStateFlow = MutableStateFlow(false)
 
     // A simple protection against a situation where multiple calls to seekToFrame() are done
@@ -78,18 +78,18 @@ class SingleFrameDisplayer(
     }
 
     /**
-     * Initializes and starts the MediaCodec decoder using the provided [surface].
+     * Initializes and starts the MediaCodec decoder using the provided [surface]
      *
      * Configures the decoder for H.264 (AVC) playback using SPS/PPS data and rotation
      * from [cameraAndCodecConfig]. If the [cameraAndCodecConfig] configuration is not yet
-     * valid, it performs a brief retry before giving up.
+     * valid, it performs a brief retry before giving up
      *
-     * @param surface The output surface for rendered frames.
-     * @return True if the decoder is ready, false if configuration failed.
+     * @param surface The output surface for rendered frames
+     * @return True if the decoder is ready, false if configuration failed
      */
     suspend fun initialize(surface: Surface): Boolean {
         if (!surface.isValid) {
-            Timber.e("#######S invalid surface")
+            Timber.e("####S invalid surface")
             return false
         }
         if (! cameraAndCodecConfig.isConfigurationValid()) {
@@ -98,7 +98,7 @@ class SingleFrameDisplayer(
                 // This is OK on the app's startup. Since video is PAUSED, the VM tries to display
                 // a single frame, but since no video was ever captured, there is no camera and
                 // codec config yet
-                Timber.d("#######S ! cameraAndCodecConfig.isConfigurationValid()")
+                Timber.d("####S cameraAndCodecConfig.isConfigurationValid()")
                 return false
             }
         }
@@ -131,7 +131,7 @@ class SingleFrameDisplayer(
 
     /** stop(), release() and set decoder to null */
     fun release() {
-        Timber.d("#######S releaseDecoder()")
+        Timber.d("#######S release()")
         decoderStartedStateFlow.update { false }
         runCatching { decoder?.stop() }
             .onFailure { Timber.e(it, "#######S decoder.stop() failed") }
@@ -180,7 +180,7 @@ class SingleFrameDisplayer(
             return
         }
 
-        // Wait for the decoder to become "started"
+        // Wait for the decoder to become "started". (Waits until the first "true" is emitted)
         decoderStartedStateFlow.first { it }
 
         val keyframeIndex = findKeyframeForFrame(targetIndex)
@@ -317,7 +317,7 @@ class SingleFrameDisplayer(
         }
     }
 
-    suspend fun seekToLastFrame() {
+    suspend fun displayLastFrame() {
         Timber.d("#######S seekToLastFrame() lastFrameIndex=$lastFrameIndex")
         seekToFrame(lastFrameIndex)
     }

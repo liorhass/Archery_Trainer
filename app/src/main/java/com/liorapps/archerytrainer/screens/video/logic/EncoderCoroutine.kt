@@ -1,10 +1,7 @@
 package com.liorapps.archerytrainer.screens.video.logic
 
 import android.Manifest
-import android.content.Context
-import android.graphics.SurfaceTexture
 import android.hardware.camera2.CameraCaptureSession
-import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraDevice
 import android.hardware.camera2.CameraManager
 import android.hardware.camera2.params.OutputConfiguration
@@ -14,8 +11,6 @@ import android.media.MediaCodecInfo
 import android.media.MediaFormat
 import android.os.Handler
 import android.os.HandlerThread
-import android.util.Range
-import android.util.Size
 import android.view.Surface
 import androidx.annotation.RequiresPermission
 import com.google.android.gms.common.util.concurrent.HandlerExecutor
@@ -82,9 +77,11 @@ import kotlin.coroutines.resumeWithException
  *                             The coroutine cancels itself after calling this.
  */
 class EncoderCoroutine(
-    private val context: Context,
-    private val ringBuffer: NalRingBuffer,
+    private val cameraDevice: CameraDevice?,
+    private val cameraThread: HandlerThread,
+    private val cameraHandler: Handler,
     private val cameraAndCodecConfig: CameraAndCodecConfig,
+    private val ringBuffer: NalRingBuffer,
 //    private val codecConfigDataHolder: Array<ByteArray?>,   // index 0 = codecConfigData
 //    private val onError: (Throwable) -> Unit = {},
 ) {
@@ -100,14 +97,10 @@ class EncoderCoroutine(
      * Must be called from a coroutine running on [Dispatchers.IO].
      */
     @RequiresPermission(Manifest.permission.CAMERA)
-    suspend fun run(): Unit = withContext(Dispatchers.IO) {
+    suspend fun run() = withContext(Dispatchers.IO) {
 
         var encoder: MediaCodec? = null
         var encoderInputSurface: Surface? = null
-        var cameraDevice: CameraDevice? = null
-        // Camera2 callbacks require a looper - use a dedicated HandlerThread.
-        val cameraThread = HandlerThread("ArcheryTrainer-Camera").also { it.start() }
-        val cameraHandler = Handler(cameraThread.looper)
 
         Timber.d("#######E run()")
         try {
@@ -145,33 +138,23 @@ class EncoderCoroutine(
             Timber.d("#######E back from encoder.start()")
 
             // ------------------------------------------------------------------
-            // 2. Open the camera  (§4.1)
-            // ------------------------------------------------------------------
-            val cameraManager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
-
-            // TODO: LH cameraId should be a parameter passed into this function
-            val cameraId = selectCamera(cameraManager)
-            Timber.d("#######E back from selectBackCamera()")
-
-//            Timber.d("####### vvvvvvvvvvvvvvvvvv calling openCamera()")
-            cameraDevice = openCamera(cameraManager, cameraId, cameraHandler)
-//            Timber.d("####### ^^^^^^^^^^^^^^^^^^ back from openCamera()")
-
-
-            // ------------------------------------------------------------------
             // 3. Create a CaptureSession and submit a repeating capture request
             // ------------------------------------------------------------------
-            val captureRequest =
-                cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_RECORD).apply {
-                    addTarget(encoderInputSurface)
-                }.build()
+            if (cameraDevice != null) {
+                val captureRequest =
+                    cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_RECORD).apply {
+                        addTarget(encoderInputSurface)
+                    }.build()
 
 //            var captureSession: CameraCaptureSession? = null
-            val captureSession = createCaptureSession(cameraDevice, encoderInputSurface, cameraHandler)
-            Timber.d("#######E back from createCaptureSession()")
-            captureSession.setRepeatingRequest(captureRequest, null, cameraHandler)
-            Timber.d("#######E back from setRepeatingRequest()")
-
+                val captureSession = createCaptureSession(cameraDevice, encoderInputSurface, cameraHandler)
+//                Timber.d("#######E back from createCaptureSession()")
+                captureSession.setRepeatingRequest(captureRequest, null, cameraHandler)
+//                Timber.d("#######E back from setRepeatingRequest()")
+            } else {
+                Timber.e("####E run() cameraDevice is null")
+                throw (IllegalStateException("cameraDevice is null"))
+            }
 
             // ------------------------------------------------------------------
             // 4. Drain the encoder output queue
@@ -193,19 +176,21 @@ class EncoderCoroutine(
             // Shutdown - order matters:
             // Camera first, then encoder, to avoid frames arriving on a stopped codec.
             //
-            // Note: We close the camera device directly. This automatically and 
-            // gracefully closes any active capture session. Explicitly closing 
-            // the session before the device can trigger a CAMERA_ERROR (3) on 
-            // some devices (e.g. "Function not implemented") if the device is 
+            // Note: We close the camera device directly. This automatically and
+            // gracefully closes any active capture session. Explicitly closing
+            // the session before the device can trigger a CAMERA_ERROR (3) on
+            // some devices (e.g. "Function not implemented") if the device is
             // already closing or disconnected.
             // ------------------------------------------------------------------
-            runCatching { cameraDevice?.close(); cameraDevice = null }
+            runCatching { cameraDevice?.close() }
+                .onFailure { Timber.e(it, "####E camera.close() failed") }
+                .onSuccess { Timber.d("####E camera.close() succeed") }
             runCatching { encoder?.stop() }
-                .onFailure { Timber.e(it, "#######E encoder.stop() failed") }
+                .onFailure { Timber.e(it, "####E encoder.stop() failed") }
             runCatching { encoder?.release(); encoder = null }
-                .onFailure { Timber.e(it, "#######E encoder.release() failed") }
+                .onFailure { Timber.e(it, "####E encoder.release() failed") }
             runCatching { encoderInputSurface?.release(); encoderInputSurface = null }
-            runCatching { cameraThread.quitSafely(); cameraThread.join() }
+//            runCatching { cameraThread.quitSafely(); cameraThread.join() }
         }
     }
 
@@ -313,124 +298,6 @@ class EncoderCoroutine(
         } finally {
             encoder.releaseOutputBuffer(outputIndex, false)
 //            Timber.d("#######E processEncoderBuffer() back from encoder.releaseOutputBuffer()")
-        }
-    }
-
-    // -------------------------------------------------------------------------
-    // Camera2 helpers
-    // -------------------------------------------------------------------------
-
-    private fun logCameraCharacteristics(cameraChars: CameraCharacteristics) {
-        val map = cameraChars.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
-        val videoSizes: Array<Size>? = map?.getOutputSizes(SurfaceTexture::class.java)
-        videoSizes?.forEach { size ->
-            Timber.d("#######E Supported Resolution: ${size.width} x ${size.height}")
-        }
-
-        // Retrieve the list of supported FPS ranges
-        val fpsRanges: Array<Range<Int>>? = cameraChars.get(
-            CameraCharacteristics.CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES
-        )
-        fpsRanges?.forEach { range ->
-            // Example: [15, 30] means the camera can vary between 15 and 30 fps
-            // Example: [30, 30] means a fixed frame rate of 30 fps
-            Timber.d("#######E Supported FPS range: ${range.lower} - ${range.upper}")
-        }
-
-
-    }
-    /**
-     * Returns the ID of the first back-facing camera, or the first available
-     * camera if no back-facing camera is found.
-     */
-    private fun selectCamera(manager: CameraManager): String {
-
-
-
-        Timber.d("#######E Device has ${manager.cameraIdList.size} cameras")
-        for (cameraId in manager.cameraIdList) {
-            val chars: CameraCharacteristics = manager.getCameraCharacteristics(cameraId)
-            Timber.d("#######E camera ID=$cameraId  Characteristics: $chars")
-            logCameraCharacteristics(chars)
-        }
-
-
-
-        val ids = manager.cameraIdList
-        Timber.d("#######E selectCamera() available camera IDs=$ids")
-        for (id in ids) {
-            val characteristics = manager.getCameraCharacteristics(id)
-            Timber.d("#######E selectCamera() camera ID=$id")
-            Timber.d("#######E   selectCamera() camera LENS_FACING=${characteristics.get(CameraCharacteristics.LENS_FACING)}")
-        }
-
-        val cameraId = ids.firstOrNull { id ->
-            manager.getCameraCharacteristics(id)
-                .get(CameraCharacteristics.LENS_FACING) == CameraCharacteristics.LENS_FACING_FRONT
-        } ?: ids.first()
-        val chars: CameraCharacteristics = manager.getCameraCharacteristics(cameraId)
-        val sensorOrientation = chars.get(CameraCharacteristics.SENSOR_ORIENTATION) ?: 270
-        Timber.d("#######E selectCamera() selected cameraId: $cameraId  sensorOrientation: $sensorOrientation")
-        return cameraId
-    }
-
-    /**
-     * Opens the camera with [cameraId] and suspends until [CameraDevice.StateCallback.onOpened]
-     * fires. Cancellation closes the device if it was already opened.
-     */
-    @RequiresPermission(Manifest.permission.CAMERA)
-    private suspend fun openCamera(
-        manager: CameraManager,
-        cameraId: String,
-        handler: Handler,
-    ): CameraDevice = suspendCancellableCoroutine { cont ->
-        Timber.d("#######E openCamera()")
-        manager.openCamera(
-            cameraId,
-            object : CameraDevice.StateCallback() {
-                override fun onOpened(device: CameraDevice) {
-                    if (cont.isActive) {
-                        Timber.d("#######E openCamera() camera=$device")
-                        cont.resume(device)
-                    } else {
-                        device.close()
-                        cont.resumeWithException(IllegalStateException("openCamera() continuation is not active"))
-                    }
-                }
-
-                override fun onDisconnected(device: CameraDevice) {
-                    device.close()
-                    Timber.w("####### #######E openCamera() onDisconnected cont.isActive=${cont.isActive}")
-//                    if (cont.isActive) {
-                        cont.resumeWithException(
-                            IllegalStateException("Camera disconnected during open. cameraId=$cameraId")
-                        )
-//                    } else {
-//                        // Camera disconnected after it was already opened.
-//                        // Notify the onError callback so the pipeline stops cleanly.
-//                        onError(IllegalStateException("Camera $cameraId disconnected"))
-//                    }
-                }
-
-                override fun onError(device: CameraDevice, error: Int) {
-                    Timber.w("####### ####### openCamera() onError cont.isActive=${cont.isActive} error=$error")
-                    device.close()
-//                    if (cont.isActive) {
-                        cont.resumeWithException(
-                            RuntimeException("Camera open error:  cameraId=$cameraId error=$error")
-                        )
-//                    } else {
-//                        onError(RuntimeException("Camera $cameraId error: $error"))
-//                    }
-                }
-            },
-            handler
-        )
-
-        /* device closed in finally block of run() if open */
-        cont.invokeOnCancellation { throwable ->
-            Timber.w("####### ####### openCamera() cont.invokeOnCancellation")
-            Timber.w("####### ####### cont.invokeOnCancellation err: ${if (throwable != null) throwable.message else "null"}")
         }
     }
 
