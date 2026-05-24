@@ -125,12 +125,14 @@ class DelayedVideoViewModel(application: Application, val settingsRepo: Settings
         if (_cameraPermissionStateFlow.value == CameraPermissionState.GRANTED) return
         _cameraPermissionStateFlow.update { CameraPermissionState.GRANTED }
         viewModelScope.launch {
-            gCameraDevice = selectAndOpenCameraDevice()
+            if (gCameraDevice == null) {
+                gCameraDevice = selectAndOpenCameraDevice()
+            }
         }
     }
     fun onCameraPermissionDenied() { _cameraPermissionStateFlow.update { CameraPermissionState.DENIED } }
 
-    var gCameraDevice: CameraDevice? = null
+    private var gCameraDevice: CameraDevice? = null
 
     // ─────────────────────────────────────────────────────────────────────────
     // Pipeline-internal shared state
@@ -140,7 +142,8 @@ class DelayedVideoViewModel(application: Application, val settingsRepo: Settings
      * The single ring buffer shared by the encoder (writer) and decoder (reader).
      * Allocated once; reset at the start of each new playback session.
      */
-    private val ringBuffer = NalRingBuffer()
+    init {Timber.i("#### DelayedVideoViewModel: creating NalRingBuffer")}
+    private val ringBuffer = NalRingBuffer.getInstance()
 
     /**
      * Single-element array holding the SPS/PPS bytes emitted by the encoder.
@@ -339,7 +342,7 @@ class DelayedVideoViewModel(application: Application, val settingsRepo: Settings
                         singleFrameDisplayer.redisplayLastDisplayedFrame()
                     } else {
                         // This is fine if no video has been captured yet (we don't have camera and codec config yet)
-                        Timber.d("#######VM singleFrameDisplayer.setupDecoder() failed")
+                        Timber.d("####VM singleFrameDisplayer.setupDecoder() failed (this is ok)")
                     }
                 }
                 PlaybackState.LOOP_REPLAYING -> {
@@ -430,6 +433,7 @@ class DelayedVideoViewModel(application: Application, val settingsRepo: Settings
             delayedVideoPlayer.stop()
             loopPlayer.release()
             ringBuffer.reset()
+            gCameraDevice?.close(); gCameraDevice = null
         }
     }
 
@@ -593,7 +597,7 @@ class DelayedVideoViewModel(application: Application, val settingsRepo: Settings
             object : CameraDevice.StateCallback() {
                 override fun onOpened(cameraDevice: CameraDevice) {
                     if (cont.isActive) {
-                        Timber.d("####VM openCamera() camera=$cameraDevice")
+                        Timber.d("####VM cameraCallback.onOpened() camera=$cameraDevice")
                         cont.resume(cameraDevice)
                     } else {
                         cameraDevice.close()
@@ -603,21 +607,17 @@ class DelayedVideoViewModel(application: Application, val settingsRepo: Settings
 
                 override fun onClosed(cameraDevice: CameraDevice) {
                     super.onClosed(cameraDevice)
-                    Timber.d("####VM Camera closed")
+                    Timber.d("####VM cameraCallback.onClosed(): Camera closed ")
                     gCameraDevice = null
                 }
 
                 override fun onDisconnected(cameraDevice: CameraDevice) {
                     cameraDevice.close()
-                    Timber.w("####### ####VM openCamera() onDisconnected cont.isActive=${cont.isActive}")
+                    Timber.w("####### ####VM cameraCallback.onDisconnected() cont.isActive=${cont.isActive}")
 //                    if (cont.isActive) {
-                    cont.resumeWithException(
-                        IllegalStateException("Camera disconnected during open. cameraId=$cameraId")
-                    )
-//                    } else {
-//                        // Camera disconnected after it was already opened.
-//                        // Notify the onError callback so the pipeline stops cleanly.
-//                        onError(IllegalStateException("Camera $cameraId disconnected"))
+//                    cont.resumeWithException(
+//                        IllegalStateException("Camera disconnected during open. cameraId=$cameraId")
+//                    )
 //                    }
                 }
 
@@ -665,6 +665,7 @@ class DelayedVideoViewModel(application: Application, val settingsRepo: Settings
         private val repo: SettingsRepository
     ) : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
+            Timber.d("#### DelayedVideoViewModel.Factory()")
             if (modelClass.isAssignableFrom(DelayedVideoViewModel::class.java)) {
                 @Suppress("UNCHECKED_CAST")
                 return DelayedVideoViewModel(application, repo) as T

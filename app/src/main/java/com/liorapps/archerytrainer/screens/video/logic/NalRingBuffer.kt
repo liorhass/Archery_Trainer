@@ -1,5 +1,6 @@
 package com.liorapps.archerytrainer.screens.video.logic
 
+import timber.log.Timber
 import java.nio.ByteBuffer
 
 /**
@@ -22,27 +23,51 @@ import java.nio.ByteBuffer
  * @param bufferSizeBytes  Size of the native data buffer in bytes (default 90 MB).
  * @param maxFrames        Maximum number of NAL unit metadata slots (default 1200).
  */
-class NalRingBuffer(
-    private val bufferSizeBytes: Int = DEFAULT_BUFFER_SIZE_BYTES,
-    private val maxFrames: Int = DEFAULT_MAX_FRAMES,
+class NalRingBuffer private constructor(
+    private val bufferSizeBytes: Int,
+    private val maxFrames: Int,
 ) {
+    companion object {
+        /** Default native buffer size: 30 s × 2.5 MB/s × 1.2 safety margin ≈ 90 MB. */
+        const val DEFAULT_BUFFER_SIZE_BYTES: Int = 90 * 1024 * 1024
 
-    // -------------------------------------------------------------------------
-    // Native data buffer
-    // -------------------------------------------------------------------------
+        /**
+         * Default metadata capacity: 30 s × 30 fps × 1.33 headroom ≈ 1200 slots.
+         * Matches [com.liorapps.archerytrainer.ArcheryTrainerDefaults.MAX_FRAMES].
+         */
+        const val DEFAULT_MAX_FRAMES: Int = 1200
 
+        @Volatile private var instance: NalRingBuffer? = null
+
+        fun getInstance(
+            bufferSizeBytes: Int = DEFAULT_BUFFER_SIZE_BYTES,
+            maxFrames: Int = DEFAULT_MAX_FRAMES
+        ): NalRingBuffer {
+            // First check (no locking)
+            return instance ?: synchronized(this) {
+                // Second check (with locking)
+                instance ?: NalRingBuffer(bufferSizeBytes, maxFrames).also {
+                    instance = it
+                }
+            }
+        }
+    }
+
+    init {
+        Timber.i("#### >>>>>>>> allocating NalRingBuffer")
+    }
     /** Pre-allocated native memory for all H.264 NAL unit bytes. Never replaced. */
     private val dataBuffer: ByteBuffer = ByteBuffer.allocateDirect(bufferSizeBytes)
 
     // -------------------------------------------------------------------------
-    // Metadata parallel arrays  (§3.2)
+    // Metadata parallel arrays
     // -------------------------------------------------------------------------
 
     /** Presentation timestamp of each NAL unit, in microseconds (µs). */
     private val metaPTS: LongArray = LongArray(maxFrames)
 
     /** Byte offset of each NAL unit's first byte inside [dataBuffer]. */
-    private val metaOffset: LongArray = LongArray(maxFrames)
+    private val metaOffset: IntArray = IntArray(maxFrames)
 
     /** Size in bytes of each NAL unit. */
     private val metaSize: IntArray = IntArray(maxFrames)
@@ -64,7 +89,7 @@ class NalRingBuffer(
     @Volatile private var metaCount: Int = 0
 
     /** Byte offset of the next NAL write position in [dataBuffer]. */
-    @Volatile private var writeHead: Long = 0L
+    @Volatile private var writeHead: Int = 0
 
     // -------------------------------------------------------------------------
     // Eviction / overflow counters (diagnostic)
@@ -103,15 +128,14 @@ class NalRingBuffer(
         require(nalNBytes <= bufferSizeBytes) {
             "NAL unit size $nalNBytes exceeds buffer capacity $bufferSizeBytes"
         }
-//        if (writeHead + nalBytes.size > bufferSizeBytes) {
         if (writeHead + nalNBytes > bufferSizeBytes) {
             // Not enough room at the end — wrap around to the start of the native buffer.
-            writeHead = 0L
+            writeHead = 0
         }
 
         // --- 1. Place NAL bytes into the data buffer, wrapping if necessary ---
 //        val nalOffset: Long = writeHead
-        dataBuffer.position(writeHead.toInt())
+        dataBuffer.position(writeHead)
         dataBuffer.put(nalBytes)
         // writeHead is updated AFTER the put — metadata is recorded below before pointer advances.
 
@@ -291,7 +315,7 @@ class NalRingBuffer(
         metaHead  = 0
         metaTail  = 0
         metaCount = 0
-        writeHead = 0L
+        writeHead = 0
         evictionCount = 0L
     }
 
@@ -368,20 +392,5 @@ class NalRingBuffer(
         private fun linearIndexToMetaIndex(linearIndex: Int): Int {
             return (metaTail + linearIndex) % maxFrames
         }
-    }
-
-    // -------------------------------------------------------------------------
-    // Companion
-    // -------------------------------------------------------------------------
-
-    companion object {
-        /** Default native buffer size: 30 s × 2.5 MB/s × 1.2 safety margin ≈ 90 MB. */
-        const val DEFAULT_BUFFER_SIZE_BYTES: Int = 90 * 1024 * 1024
-
-        /**
-         * Default metadata capacity: 30 s × 30 fps × 1.33 headroom ≈ 1200 slots.
-         * Matches [com.liorapps.archerytrainer.ArcheryTrainerDefaults.MAX_FRAMES].
-         */
-        const val DEFAULT_MAX_FRAMES: Int = 1200
     }
 }

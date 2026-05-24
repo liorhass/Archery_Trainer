@@ -1,6 +1,9 @@
 package com.liorapps.archerytrainer.navigation
 
+import androidx.compose.runtime.Composable
+import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
+import androidx.navigation3.runtime.rememberNavBackStack
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -9,13 +12,13 @@ sealed class ATNavKey(
     val requiresSlideGestures: Boolean,  // Set to true on screens that need the nav drawer to pass through the slide-on-screen gestures
 ) : NavKey  {
     @Serializable
+    data object ShootingSessionList : ATNavKey(isNavigationRoot = true, requiresSlideGestures = false)
+
+    @Serializable
     data object DelayedVideo : ATNavKey(isNavigationRoot = true, requiresSlideGestures = true)
 
     @Serializable
     data object Settings : ATNavKey(isNavigationRoot = true, requiresSlideGestures = false)
-
-    @Serializable
-    data object ShootingSessionList : ATNavKey(isNavigationRoot = true, requiresSlideGestures = false)
 
     @Serializable
     data class EditShootingSession(val sessionId: Long = -1) : ATNavKey(isNavigationRoot = false, requiresSlideGestures = false)
@@ -78,3 +81,10 @@ sealed class ATNavKey(
 //        NavBackStack(initialKey)
 //    }
 //}
+@Composable
+fun rememberATNavBackStack(initialKey: ATNavKey): NavBackStack<ATNavKey> {
+    val backStack = rememberNavBackStack(initialKey)
+
+    @Suppress("UNCHECKED_CAST")
+    return backStack as NavBackStack<ATNavKey>
+}

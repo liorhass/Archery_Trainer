@@ -3,14 +3,15 @@ package com.liorapps.archerytrainer.navigation
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.navigation3.runtime.NavBackStack
+import androidx.navigation3.runtime.NavKey
 import timber.log.Timber
 
-class NavigationViewModel: ViewModel() {
+class NavigationViewModel(val backStack: NavBackStack<ATNavKey>): ViewModel() {
 
-    val backStack = NavBackStack<ATNavKey>(ATNavKey.ShootingSessionList)
+//    val backStack = NavBackStack<ATNavKey>(ATNavKey.ShootingSessionList)
 
     fun navigateTo(key: ATNavKey) {
-        Timber.d("#### navigateTo() keyClassName=${key.javaClass.name}")
+        Timber.d("#### navigateTo() keyClassName=${key.javaClass.simpleName} backstack.size=${backStack.size}")
 //        backStack.add(key)
         backStack.addOrTrim(key)
     }
@@ -51,13 +52,13 @@ class NavigationViewModel: ViewModel() {
         get() = this.last { it.isNavigationRoot }
 
 
-    class Factory /*(
+    class Factory (
         private val backStack: NavBackStack<ATNavKey>,
-    )*/ : ViewModelProvider.Factory {
+    ) : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             if (modelClass.isAssignableFrom(NavigationViewModel::class.java)) {
                 @Suppress("UNCHECKED_CAST")
-                return NavigationViewModel(/*backStack*/) as T
+                return NavigationViewModel(backStack) as T
             }
             throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
         }

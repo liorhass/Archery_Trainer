@@ -289,11 +289,7 @@ class EncoderCoroutine(
                 val isKey = (bufferInfo.flags and MediaCodec.BUFFER_FLAG_KEY_FRAME) != 0
 //                Timber.d("#######E processEncoderBuffer() normal NAL isKey=$isKey")
 
-//                val nalBytes = ByteArray(bufferInfo.size)
-//                outputBuffer.get(nalBytes)
-//                ringBuffer.writeNal(pts, nalBytes, isKey)
                 ringBuffer.writeNal(pts, outputBuffer, isKey)
-//                Timber.d("#######E processEncoderBuffer() back from ringBuffer.writeNal()")
             }
         } finally {
             encoder.releaseOutputBuffer(outputIndex, false)

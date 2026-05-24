@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.NavEntry
+import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 import com.liorapps.archerytrainer.ArcheryTrainerApplication
@@ -53,6 +54,7 @@ import com.liorapps.archerytrainer.screens.settings.SettingsViewModel
 import com.liorapps.archerytrainer.screens.video.logic.DelayedVideoViewModel
 import com.liorapps.archerytrainer.screens.video.ui.DelayedVideoShellScreen
 import kotlinx.coroutines.launch
+import timber.log.Timber
 
 const val NAVIGATION_ANIMATION_DELAY = 500  // In mSec
 @Composable
@@ -61,11 +63,11 @@ fun ArcheryTrainerNavHost(/*navigationViewModel: NavigationViewModel*/) {
     // Create the app's backStack with rememberXXXNavBackStack. This gives us persistence across
     // process death so when the user re-opens the app he gets the last screen he was on
     // See: https://developer.android.com/guide/navigation/navigation-3/save-state#use-remembernavbackstack
-//    val backStack = rememberATNavBackStack(ATNavKey.DelayedVideo)
+    val backStack = rememberATNavBackStack( ATNavKey.ShootingSessionList)
 //    val backStack = getATBackStack()
     val navigationViewModel: NavigationViewModel = viewModel(
-//        factory = NavigationViewModel.Factory(backStack)
-        factory = NavigationViewModel.Factory()
+        factory = NavigationViewModel.Factory(backStack)
+//        factory = NavigationViewModel.Factory()
     )
 
     val drawerState  = rememberDrawerState(DrawerValue.Closed)
@@ -86,6 +88,7 @@ fun ArcheryTrainerNavHost(/*navigationViewModel: NavigationViewModel*/) {
             AppDrawerContent(
                 currentRoute = navigationViewModel.backStack.lastOrNull(),
                 onNavigate = { navKey ->
+                    Timber.d("#### zzzzzzzzzzzzzzzz onNavigate")
                     navigationViewModel.navigateTo(navKey)
 //                    viewModel.backStack.clear(); viewModel.backStack.add(navKey)
                     scope.launch { drawerState.close() }

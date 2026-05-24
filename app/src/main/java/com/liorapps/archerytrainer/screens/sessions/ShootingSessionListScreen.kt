@@ -40,6 +40,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -198,9 +199,16 @@ private fun SwipeableSessionCard(
 private fun SwipeBackground(dismissState: SwipeToDismissBoxState) {
     BoxWithConstraints {
         val cardWidthPx = constraints.maxWidth.toFloat()
-        val swipeFraction = abs(dismissState.requireOffset()) / cardWidthPx
-        val isActive = swipeFraction > 0.25f  // How much the user has to swipe before the background becomes active
-//        Timber.d("#### swipeFraction=${swipeFraction}")
+        val isActive = remember(dismissState, cardWidthPx) {
+            derivedStateOf {
+                val offset = if (dismissState.dismissDirection == SwipeToDismissBoxValue.EndToStart) {
+                    dismissState.requireOffset()
+                } else {
+                    0f
+                }
+                (abs(offset) / cardWidthPx) > 0.25f
+            }
+        }.value
 
         val bgColor by animateColorAsState(
             targetValue = if (isActive) MaterialTheme.colorScheme.errorContainer else Color.Transparent,

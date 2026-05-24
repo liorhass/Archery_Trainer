@@ -231,39 +231,73 @@ private fun MainControlButtons(
     onDelayChanged: (Int) -> Unit,
 ) {
     // Play/Pause button
-    IconButton(onClick = onTogglePlayback) {
-        if (playbackState == DelayedVideoViewModel.PlaybackState.PLAYING) {
-            Icon(
-                imageVector = Icons.Default.Pause,
-                tint = MaterialTheme.colorScheme.onSurface,
-                contentDescription = "Pause",
-            )
-        } else {
-            Icon(
-                imageVector = Icons.Default.PlayCircle,
-                tint = Color.Red,
-                contentDescription = "Play"
-            )
+    when (playbackState) {
+        DelayedVideoViewModel.PlaybackState.PLAYING -> {
+            IconButton(onClick = onTogglePlayback) {
+                Icon(
+                    imageVector = Icons.Default.Pause,
+                    tint = MaterialTheme.colorScheme.onSurface,
+                    contentDescription = "Pause",
+                )
+            }
+        }
+        DelayedVideoViewModel.PlaybackState.PAUSED -> {
+            IconButton(onClick = onTogglePlayback) {
+                Icon(
+                    imageVector = Icons.Default.PlayCircle,
+                    tint = Color.Red,
+                    contentDescription = "Play",
+                )
+            }
+        }
+        DelayedVideoViewModel.PlaybackState.LOOP_REPLAYING -> {
+            IconButton(onClick = {}, enabled = false) {
+                Icon(
+                    imageVector = Icons.Default.PlayCircle,
+                    tint = Color.Red.copy(alpha = 0.5f),
+                    contentDescription = "Play",
+                )
+            }
         }
     }
 
     // Loop replay
-    IconButtonWithLongClick(
-        onClick = onToggleLoopPlayback,
-        onLongClick = onToggleLoopPlayback,
-    ) {
-        if (playbackState != DelayedVideoViewModel.PlaybackState.LOOP_REPLAYING) {
-            Icon(
-                imageVector = Autoplay,
-                tint = MaterialTheme.colorScheme.onSurface,
-                contentDescription = "Play in loop"
-            )
-        } else {
-            Icon(
-                imageVector = Icons.Default.Pause,
-                tint = MaterialTheme.colorScheme.onSurface,
-                contentDescription = "Pause"
-            )
+    when (playbackState) {
+        DelayedVideoViewModel.PlaybackState.PAUSED -> {
+            IconButtonWithLongClick(
+                onClick = onToggleLoopPlayback,
+                onLongClick = onToggleLoopPlayback,
+            ) {
+                Icon(
+                    imageVector = Autoplay,
+                    tint = MaterialTheme.colorScheme.onSurface,
+                    contentDescription = "Play in loop"
+                )
+            }
+        }
+        DelayedVideoViewModel.PlaybackState.LOOP_REPLAYING -> {
+            IconButtonWithLongClick(
+                onClick = onToggleLoopPlayback,
+                onLongClick = onToggleLoopPlayback,
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Pause,
+                    tint = MaterialTheme.colorScheme.onSurface,
+                    contentDescription = "Pause"
+                )
+            }
+        }
+        DelayedVideoViewModel.PlaybackState.PLAYING -> {
+            IconButtonWithLongClick(
+                onClick = {},
+                onLongClick = {},
+            ) {
+                Icon(
+                    imageVector = Autoplay,
+                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                    contentDescription = "Play in loop"
+                )
+            }
         }
     }
 
