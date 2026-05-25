@@ -5,14 +5,14 @@ package com.liorapps.archerytrainer.db
  * carries the set's own data plus its parent session's date-time and comment.
  */
 data class ShootingSetWithSession(
-    // ── ShootingSet fields ──────────────────────────────────────────────────────────
+    // ShootingSet fields
     val id: Long,
     val shootingSessionId: Long,
     val dateTimeUtc: Long,
     val numberOfShots: Int,
     val score: Int,
 
-    // ── Parent-session fields ──────────────────────────────────────────────────
+    // Parent-session fields
     val shootingSessionDateTimeUtc: Long,
     val shootingSessionComment: String
 )
@@ -25,6 +25,6 @@ data class ShootingSetWithSession(
 data class ShootingSessionWithStats(
     val id: Long,
     val dateTimeUtc: Long,
-    val comment: String, //todo: change to "description"
-    val totalShots: Int                       // SUM(numberOfShots); 0 if no sets
+    val comment: String,
+    val totalShots: Int           // SUM(numberOfShots); 0 if no sets
 )

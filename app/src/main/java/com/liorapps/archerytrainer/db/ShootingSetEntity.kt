@@ -24,5 +24,5 @@ data class ShootingSetEntity(
     val shootingSessionId: Long,               // mandatory FK → shootingSession.id
     val dateTimeUtc: Long,                     // stored as epoch milliseconds (UTC)
     val numberOfShots: Int,                    // mandatory
-    val score: Int = -1                        // default –1  (not yet recorded)
+    val score: Int = -1                        // default –1  (no score)
 )

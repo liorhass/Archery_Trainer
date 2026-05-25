@@ -6,14 +6,15 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 
 @Database(
-    entities = [ShootingSessionEntity::class, ShootingSetEntity::class],
-    version = 1,
+    entities = [ShootingSessionEntity::class, ShootingSetEntity::class, ArrowEntity::class],
+    version = 2,
     exportSchema = true          // set to false if you don't need schema export files
 )
 abstract class ATDatabase : RoomDatabase() {
 
     abstract fun shootingSessionDao(): ShootingSessionDao
     abstract fun shootingSetDao(): ShootingSetDao
+    abstract fun arrowDao(): ArrowDao
 
     companion object {
         @Volatile
@@ -33,7 +34,7 @@ abstract class ATDatabase : RoomDatabase() {
                     ATDatabase::class.java,
                     "archery_trainer_database"
                 )
-                    .fallbackToDestructiveMigration(true)  // swap for real migrations in production
+                    .addMigrations(MIGRATION_1_2) // .fallbackToDestructiveMigration(true)
                     .build()
                     .also { INSTANCE = it }
             }

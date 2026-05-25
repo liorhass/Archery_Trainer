@@ -22,12 +22,36 @@ interface ShootingSessionDao {
     // ── Read ─────────────────────────────────────────────────────────────────
 
     @Query("SELECT * FROM shooting_sessions")
-    fun getAllShootingSessions(): List<ShootingSessionEntity>
+    suspend fun getAllShootingSessions(): List<ShootingSessionEntity>
 
+//    /**
+//     * Returns all shooting-sessions ordered by date-time descending (newest first),
+//     * each enriched with the total number of shots across its shooting-sets.
+//     * Emits a new list whenever any shooting-session or shooting-set changes.
+//     */
+//    @Query(
+//        """
+//        SELECT
+//            ses.id,
+//            ses.dateTimeUtc,
+//            ses.comment,
+//            COALESCE(SUM(s.numberOfShots), 0) AS totalShots
+//        FROM shooting_sessions ses
+//        LEFT JOIN shooting_sets s ON s.shootingSessionId = ses.id
+//        GROUP BY ses.id
+//        ORDER BY ses.dateTimeUtc DESC
+//    """
+//    )
+//    fun getAllShootingSessionsWithStats(): Flow<List<ShootingSessionWithStats>>
     /**
      * Returns all shooting-sessions ordered by date-time descending (newest first),
      * each enriched with the total number of shots across its shooting-sets.
-     * Emits a new list whenever any shooting-session or shooting-set changes.
+     *
+     * totalShots = SUM of each set's stored numberOfShots + total arrow count across the session.
+     * This is mathematically equivalent to summing the arrow-aware numberOfShots per set:
+     *   Σ(s.numberOfShots + arrowCount_per_set) = SUM(s.numberOfShots) + COUNT(all arrows)
+     *
+     * Emits a new list whenever any shooting-session, shooting-set, or arrow changes.
      */
     @Query(
         """
@@ -35,18 +59,40 @@ interface ShootingSessionDao {
             ses.id,
             ses.dateTimeUtc,
             ses.comment,
-            SUM(s.numberOfShots) AS totalShots
+            COALESCE(SUM(s.numberOfShots), 0) + COUNT(a.id)   AS totalShots
         FROM shooting_sessions ses
         LEFT JOIN shooting_sets s ON s.shootingSessionId = ses.id
+        LEFT JOIN arrows a ON a.shootingSetId = s.id
         GROUP BY ses.id
         ORDER BY ses.dateTimeUtc DESC
     """
     )
     fun getAllShootingSessionsWithStats(): Flow<List<ShootingSessionWithStats>>
 
+
+//    /**
+//     * Returns a single shooting-session by ID, including the total number of shots
+//     * across all of its shooting-sets. Returns null if the shooting-session does not exist.
+//     */
+//    @Query(
+//        """
+//        SELECT
+//            ses.id,
+//            ses.dateTimeUtc,
+//            ses.comment,
+//            COALESCE(SUM(s.numberOfShots), 0) AS totalShots
+//        FROM shooting_sessions ses
+//        LEFT JOIN shooting_sets s ON s.shootingSessionId = ses.id
+//        WHERE ses.id = :shootingSessionId
+//        GROUP BY ses.id
+//    """
+//    )
+//    suspend fun getShootingSessionWithStats(shootingSessionId: Long): ShootingSessionWithStats?
     /**
      * Returns a single shooting-session by ID, including the total number of shots
      * across all of its shooting-sets. Returns null if the shooting-session does not exist.
+     *
+     * totalShots = SUM of each set's stored numberOfShots + total arrow count across the session.
      */
     @Query(
         """
@@ -54,9 +100,10 @@ interface ShootingSessionDao {
             ses.id,
             ses.dateTimeUtc,
             ses.comment,
-            COALESCE(SUM(s.numberOfShots), 0) AS totalShots
+            COALESCE(SUM(s.numberOfShots), 0) + COUNT(a.id)   AS totalShots
         FROM shooting_sessions ses
         LEFT JOIN shooting_sets s ON s.shootingSessionId = ses.id
+        LEFT JOIN arrows a ON a.shootingSetId = s.id
         WHERE ses.id = :shootingSessionId
         GROUP BY ses.id
     """

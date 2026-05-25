@@ -1,0 +1,169 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 2,
+    "identityHash": "f93e2d66cbfc8cf9b45f8bf272b97983",
+    "entities": [
+      {
+        "tableName": "shooting_sessions",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `dateTimeUtc` INTEGER NOT NULL, `comment` TEXT NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dateTimeUtc",
+            "columnName": "dateTimeUtc",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "comment",
+            "columnName": "comment",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        }
+      },
+      {
+        "tableName": "shooting_sets",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `shootingSessionId` INTEGER NOT NULL, `dateTimeUtc` INTEGER NOT NULL, `numberOfShots` INTEGER NOT NULL, `score` INTEGER NOT NULL, FOREIGN KEY(`shootingSessionId`) REFERENCES `shooting_sessions`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "shootingSessionId",
+            "columnName": "shootingSessionId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dateTimeUtc",
+            "columnName": "dateTimeUtc",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "numberOfShots",
+            "columnName": "numberOfShots",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "score",
+            "columnName": "score",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_shooting_sets_shootingSessionId",
+            "unique": false,
+            "columnNames": [
+              "shootingSessionId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_shooting_sets_shootingSessionId` ON `${TABLE_NAME}` (`shootingSessionId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "shooting_sessions",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "shootingSessionId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "arrows",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `shootingSetId` INTEGER NOT NULL, `score` INTEGER NOT NULL, `dateTimeUtc` INTEGER NOT NULL, FOREIGN KEY(`shootingSetId`) REFERENCES `shooting_sets`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "shootingSetId",
+            "columnName": "shootingSetId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "score",
+            "columnName": "score",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dateTimeUtc",
+            "columnName": "dateTimeUtc",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_arrows_shootingSetId",
+            "unique": false,
+            "columnNames": [
+              "shootingSetId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_arrows_shootingSetId` ON `${TABLE_NAME}` (`shootingSetId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "shooting_sets",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "shootingSetId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'f93e2d66cbfc8cf9b45f8bf272b97983')"
+    ]
+  }
+}

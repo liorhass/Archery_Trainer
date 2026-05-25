@@ -140,6 +140,17 @@ class NalRingBuffer private constructor(
             metaCount++
         }
 
+        evictOldFrames()
+
+        // Incrementing metaHead last is the store-release that makes the new entry
+        // visible to the decoder coroutine (§11).
+        metaHead = (metaHead + 1) % maxFrames
+    }
+
+    /** Evict old frames. We make sure that the retained frames enable playing video from at
+     *  least storedIntervalUs in the past. This means that we have to retain the key-frame
+     *  of the "oldest frame to be able to be displayed" and all the frames after it */
+    private fun evictOldFrames() {
         val secondOldestKeyFrameIndex = findSecondOldestKeyframe()
         if (secondOldestKeyFrameIndex != -1) {
             val nowUs = System.nanoTime() / 1000
@@ -150,12 +161,7 @@ class NalRingBuffer private constructor(
                 metaCount -= nFramesToEvict
             }
         }
-
-        // Incrementing metaHead last is the store-release that makes the new entry
-        // visible to the decoder coroutine (§11).
-        metaHead = (metaHead + 1) % maxFrames
     }
-
     private fun nNalsFromTo(largeIndex: Int, smallIndex: Int): Int {
         val diff = largeIndex - smallIndex
         return if (diff >= 0) diff else diff + maxFrames
