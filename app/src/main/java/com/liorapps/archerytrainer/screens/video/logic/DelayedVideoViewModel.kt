@@ -36,6 +36,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -74,7 +75,16 @@ import kotlin.math.roundToInt
  *
  * @param application  Application context forwarded to [EncoderCoroutine] for [CameraManager].
  */
-class DelayedVideoViewModel(application: Application, val settingsRepo: SettingsRepository) : AndroidViewModel(application) {
+class DelayedVideoViewModel(
+    application: Application,
+    val settingsRepo: SettingsRepository
+) : AndroidViewModel(application) {
+    /**
+     * The single ring buffer shared by the encoder (writer) and decoder (reader).
+     * Allocated once; reset at the start of each new playback session.
+     */
+    private val ringBuffer = NalRingBuffer.getInstance()
+
     // ─────────────────────────────────────────────────────────────────────────
     // UI-observable Compose state  (main-thread reads + writes only)
     // ─────────────────────────────────────────────────────────────────────────
@@ -92,21 +102,12 @@ class DelayedVideoViewModel(application: Application, val settingsRepo: Settings
     private val _isBuffering = MutableStateFlow(0)
     val isBuffering = _isBuffering.asStateFlow()
 
-//    /**
-//     * User-selected delay in seconds. Readable from [Dispatchers.IO] via the lambda passed
-//     * to [DecoderCoroutine] — [mutableStateOf] is backed by @Volatile, so cross-thread
-//     * reads are safe (§11).
-//     */
-//    var delaySec: Int by mutableStateOf(VideoTrainerConfig.DEFAULT_DELAY_SEC)
-//        private set
-//    val delaySec: StateFlow<Int> = settingsRepo.delaySec
-//        .stateIn(viewModelScope, SharingStarted.Eagerly, VideoTrainerDefaults.DEFAULT_DELAY_SEC)
     val settingsFlow: StateFlow<SettingsRepository.Settings> = settingsRepo.settingsFlow
-        .stateIn(viewModelScope, SharingStarted.Lazily, SettingsRepository.Settings())
-
-    /** Non-null when a fatal pipeline error has occurred. The UI should surface this message. */
-//    var errorMessage: String? by mutableStateOf(null)
-//        private set
+        .onEach { settings ->
+            Timber.d("####VM settings changed. delaySec=${settings.delaySec}")
+            ringBuffer.setIntervalToKeepInBuffer(settings.delaySec * 1000_000L)
+        }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, SettingsRepository.Settings())
 
     var horizontalDragSensitivity: Float by mutableFloatStateOf(60f) //todo from settings
         private set
@@ -133,17 +134,6 @@ class DelayedVideoViewModel(application: Application, val settingsRepo: Settings
     fun onCameraPermissionDenied() { _cameraPermissionStateFlow.update { CameraPermissionState.DENIED } }
 
     private var gCameraDevice: CameraDevice? = null
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // Pipeline-internal shared state
-    // ─────────────────────────────────────────────────────────────────────────
-
-    /**
-     * The single ring buffer shared by the encoder (writer) and decoder (reader).
-     * Allocated once; reset at the start of each new playback session.
-     */
-    init {Timber.i("#### DelayedVideoViewModel: creating NalRingBuffer")}
-    private val ringBuffer = NalRingBuffer.getInstance()
 
     /**
      * Single-element array holding the SPS/PPS bytes emitted by the encoder.
@@ -647,14 +637,16 @@ class DelayedVideoViewModel(application: Application, val settingsRepo: Settings
         }
     }
 
-    init {
-        viewModelScope.launch {
-            settingsFlow.collect {
-                // This is called every time the settings change
-                Timber.d("####VM Settings changed")
-            }
-        }
-    }
+//    // Handle changes in settings
+//    init {
+//        viewModelScope.launch {
+//            settingsFlow.collect { settings ->
+//                // This is called every time the settings change
+//                Timber.d("####VM Settings changed")
+//                ringBuffer.setIntervalToKeepInBuffer(settings.delaySec * 1000_000L)
+//            }
+//        }
+//    }
 
     enum class PlaybackState { PAUSED, PLAYING, LOOP_REPLAYING }
 

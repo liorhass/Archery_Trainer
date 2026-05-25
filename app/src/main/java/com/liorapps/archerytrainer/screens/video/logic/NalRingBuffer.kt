@@ -1,6 +1,5 @@
 package com.liorapps.archerytrainer.screens.video.logic
 
-import timber.log.Timber
 import java.nio.ByteBuffer
 
 /**
@@ -8,54 +7,56 @@ import java.nio.ByteBuffer
  *
  * All compressed video bytes are stored in a single [DirectByteBuffer] in native
  * (off-JVM-heap) memory, paired with five parallel primitive arrays that hold per-NAL
- * metadata. No JVM objects are allocated on the hot write path.
+ * metadata. No JVM objects are allocated on the hot write path
  *
- * Thread safety model (matches §11 of the architecture plan):
- *  - [metaHead], [metaTail], [metaCount], [writeHead] are marked @Volatile.
+ * Thread safety model:
+ *  - [metaHead], [metaTail], [metaCount], [writeHead] are marked @Volatile
  *  - The encoder coroutine completes all writes to the metadata arrays at index [metaHead]
  *    *before* it increments [metaHead], so the decoder coroutine always sees a complete
- *    entry once it observes the new [metaHead] value.
+ *    entry once it observes the new [metaHead] value
  *  - The [dataBuffer] itself is partitioned by the ring pointers; encoder and decoder never
- *    touch the same byte region simultaneously under normal operation.
- *  - If the jump sequence creates a race between an in-progress write and a flush, promote
- *    access to a Mutex as noted in §11.
+ *    touch the same byte region simultaneously under normal operation
  *
- * @param bufferSizeBytes  Size of the native data buffer in bytes (default 90 MB).
- * @param maxFrames        Maximum number of NAL unit metadata slots (default 1200).
- */
+ * @param bufferSizeBytes  Size of the native data buffer in bytes (default 90 MB)
+ * @param maxFrames        Maximum number of NAL unit metadata slots (default 1200)
+ * @param storedIntervalUs When the oldest key-frame becomes older than
+ *                         now-storedIntervalUs, all NALs up to and including that
+ *                         key-frame are evicted */
 class NalRingBuffer private constructor(
     private val bufferSizeBytes: Int,
     private val maxFrames: Int,
+    private var storedIntervalUs: Long,
 ) {
     companion object {
         /** Default native buffer size: 30 s × 2.5 MB/s × 1.2 safety margin ≈ 90 MB. */
         const val DEFAULT_BUFFER_SIZE_BYTES: Int = 90 * 1024 * 1024
-
-        /**
-         * Default metadata capacity: 30 s × 30 fps × 1.33 headroom ≈ 1200 slots.
-         * Matches [com.liorapps.archerytrainer.ArcheryTrainerDefaults.MAX_FRAMES].
-         */
+        /** Default metadata capacity: 30 s × 30 fps × 1.33 headroom ≈ 1200 slots. */
         const val DEFAULT_MAX_FRAMES: Int = 1200
+        /**  */
+        const val DEFAULT_STORED_INTERVAL_US = 30_000_000L
 
         @Volatile private var instance: NalRingBuffer? = null
 
+        /** @param bufferSizeBytes  Size of the native data buffer in bytes (default 90 MB)
+         *  @param maxFrames        Maximum number of NAL unit metadata slots (default 1200)
+         *  @param storedIntervalUs When the oldest key-frame becomes older than
+         *                          now-storedIntervalUs, all NALs up to and including that
+         *                          key-frame are evicted */
         fun getInstance(
             bufferSizeBytes: Int = DEFAULT_BUFFER_SIZE_BYTES,
-            maxFrames: Int = DEFAULT_MAX_FRAMES
+            maxFrames: Int = DEFAULT_MAX_FRAMES,
+            storedIntervalUs: Long = DEFAULT_STORED_INTERVAL_US,
         ): NalRingBuffer {
             // First check (no locking)
             return instance ?: synchronized(this) {
                 // Second check (with locking)
-                instance ?: NalRingBuffer(bufferSizeBytes, maxFrames).also {
+                instance ?: NalRingBuffer(bufferSizeBytes, maxFrames, storedIntervalUs).also {
                     instance = it
                 }
             }
         }
     }
 
-    init {
-        Timber.i("#### >>>>>>>> allocating NalRingBuffer")
-    }
     /** Pre-allocated native memory for all H.264 NAL unit bytes. Never replaced. */
     private val dataBuffer: ByteBuffer = ByteBuffer.allocateDirect(bufferSizeBytes)
 
@@ -91,18 +92,6 @@ class NalRingBuffer private constructor(
     /** Byte offset of the next NAL write position in [dataBuffer]. */
     @Volatile private var writeHead: Int = 0
 
-    // -------------------------------------------------------------------------
-    // Eviction / overflow counters (diagnostic)
-    // -------------------------------------------------------------------------
-
-    /** Total number of times the oldest frame was evicted due to a full buffer. */
-    @Volatile var evictionCount: Long = 0L
-        private set
-
-    // -------------------------------------------------------------------------
-    // Write  (called by the encoder coroutine)
-    // -------------------------------------------------------------------------
-
     /**
      * Writes one H.264 NAL unit into the ring buffer.
      *
@@ -121,9 +110,6 @@ class NalRingBuffer private constructor(
      */
     fun writeNal(pts: Long, nalBytes: ByteBuffer, isKey: Boolean) {
 //        Timber.d("#######NRB writeNal() pts=$pts buf_len=${nalBytes.remaining()} isKey=$isKey")
-//        require(nalBytes.size <= bufferSizeBytes) {
-//            "NAL unit size ${nalBytes.size} exceeds buffer capacity $bufferSizeBytes"
-//        }
         val nalNBytes = nalBytes.remaining()
         require(nalNBytes <= bufferSizeBytes) {
             "NAL unit size $nalNBytes exceeds buffer capacity $bufferSizeBytes"
@@ -133,32 +119,36 @@ class NalRingBuffer private constructor(
             writeHead = 0
         }
 
-        // --- 1. Place NAL bytes into the data buffer, wrapping if necessary ---
-//        val nalOffset: Long = writeHead
+        // Place NAL bytes into the data buffer, wrapping if necessary
         dataBuffer.position(writeHead)
         dataBuffer.put(nalBytes)
-        // writeHead is updated AFTER the put — metadata is recorded below before pointer advances.
 
-        // --- 2. Record metadata for this NAL unit ---
-        // All four array writes happen before metaHead is incremented (§6 / §11).
+        // Record metadata for this NAL unit
         metaPTS[metaHead]    = pts
-//        metaOffset[metaHead] = nalOffset
         metaOffset[metaHead] = writeHead
-//        metaSize[metaHead]   = nalBytes.size
         metaSize[metaHead]   = nalNBytes
         metaIsKey[metaHead]  = isKey
 
-        // --- 3. Advance the data write pointer ---
-//        writeHead += nalBytes.size
+        // Advance the data write pointer
         writeHead += nalNBytes
 
-        // --- 4. Manage the metadata ring (evict the oldest if full) ---
+        // Manage the metadata ring (evict the oldest if full)
         if (metaCount == maxFrames) {
             // Ring is full: overwrite the oldest slot, advance tail.
             metaTail = (metaTail + 1) % maxFrames
-            evictionCount++
         } else {
             metaCount++
+        }
+
+        val secondOldestKeyFrameIndex = findSecondOldestKeyframe()
+        if (secondOldestKeyFrameIndex != -1) {
+            val nowUs = System.nanoTime() / 1000
+            if (nowUs - metaPTS[secondOldestKeyFrameIndex] > storedIntervalUs) {
+                // Evict all entries up to (not including) the second oldest key-frame
+                val nFramesToEvict = nNalsFromTo(secondOldestKeyFrameIndex, metaTail)
+                metaTail = (metaTail + nFramesToEvict) % maxFrames
+                metaCount -= nFramesToEvict
+            }
         }
 
         // Incrementing metaHead last is the store-release that makes the new entry
@@ -166,9 +156,10 @@ class NalRingBuffer private constructor(
         metaHead = (metaHead + 1) % maxFrames
     }
 
-    // -------------------------------------------------------------------------
-    // Read  (called by the decoder coroutine)
-    // -------------------------------------------------------------------------
+    private fun nNalsFromTo(largeIndex: Int, smallIndex: Int): Int {
+        val diff = largeIndex - smallIndex
+        return if (diff >= 0) diff else diff + maxFrames
+    }
 
     /**
      * Copies the NAL unit at [index] directly into [dest].
@@ -267,6 +258,24 @@ class NalRingBuffer private constructor(
         return -1
     }
 
+    private fun findSecondOldestKeyframe(): Int {
+        val count = metaCount
+        if (count == 0) return -1
+
+        var i = metaTail
+        var checked = 0
+        var nKeyFrameFound = 0
+        while (checked < count) {
+            if (metaIsKey[i]) {
+                if (++nKeyFrameFound >= 2)
+                    return i
+            }
+            i = (i + 1) % maxFrames
+            checked++
+        }
+        return -1
+    }
+
     // -------------------------------------------------------------------------
     // State queries  (safe for any thread)
     // -------------------------------------------------------------------------
@@ -316,7 +325,6 @@ class NalRingBuffer private constructor(
         metaTail  = 0
         metaCount = 0
         writeHead = 0
-        evictionCount = 0L
     }
 
     // -------------------------------------------------------------------------
@@ -341,6 +349,12 @@ class NalRingBuffer private constructor(
         }
     }
 
+    fun setIntervalToKeepInBuffer(intervalUs: Long) { storedIntervalUs = intervalUs }
+
+
+    /**********************************************************************************************
+     * Linear representation of the buffer - convenient to use, no need for modulo on every access
+     */
     inner class AsLinearBuffer {
         /** Number of frames currently in the buffer */
         val count: Int
@@ -353,7 +367,7 @@ class NalRingBuffer private constructor(
          * Get the data of a frame as a ByteBuffer
          */
         fun getFrameData(index: Int): ByteBuffer {
-            val offset   = metaOffset[linearIndexToMetaIndex(index)].toInt()
+            val offset   = metaOffset[linearIndexToMetaIndex(index)]
             val size     = metaSize[linearIndexToMetaIndex(index)]
             val frameBuf = dataBuffer.duplicate()  // does not allocate native memory - just a view
             frameBuf.position(offset).limit(offset + size)

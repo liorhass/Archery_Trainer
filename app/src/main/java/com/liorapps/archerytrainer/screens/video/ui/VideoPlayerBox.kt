@@ -23,8 +23,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -36,12 +36,12 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.keepScreenOn
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.liorapps.archerytrainer.ArcheryTrainerDefaults
 import com.liorapps.archerytrainer.screens.util.IconButtonWithLongClick
 import com.liorapps.archerytrainer.screens.util.icons.Autoplay
 import com.liorapps.archerytrainer.screens.video.logic.DelayedVideoViewModel
 import com.liorapps.archerytrainer.ui.theme.ArcheryTrainerTheme
-import timber.log.Timber
 
 @Composable
 fun VideoPlayerBox(
@@ -301,7 +301,7 @@ private fun MainControlButtons(
         }
     }
 
-    // Delay
+    // Delay - display current delay on the button, open delay selection dialog on click
     var showDelayDialog by rememberSaveable { mutableStateOf(false) }
     TextButton(onClick = { showDelayDialog = true }) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -329,7 +329,7 @@ private fun MainControlButtons(
 
     if (showDelayDialog) {
         DelayDialog(
-            currentValue = delay,
+            initialValue = delay,
             onDismiss = { showDelayDialog = false },
             onValueChanged = onDelayChanged
         )
@@ -338,17 +338,18 @@ private fun MainControlButtons(
 
 @Composable
 fun DelayDialog(
-    currentValue: Int,
+    initialValue: Int,
     onDismiss: () -> Unit,
     onValueChanged: (Int) -> Unit
 ) {
-    val origDelay = remember {currentValue}
+    val origDelay = rememberSaveable {initialValue}
+    var currentDelay by rememberSaveable { mutableIntStateOf(initialValue) }
 
     AlertDialog(
         title = { Text("Adjust Delay") },
         onDismissRequest = onDismiss,
         confirmButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(onClick = {onValueChanged(currentDelay); onDismiss()}) {
                 Text("OK")
             }
         },
@@ -359,10 +360,10 @@ fun DelayDialog(
         },
         text = {
             Column {
-                Text(text = "Delay: $currentValue seconds")
+                Text(text = "Delay: $currentDelay seconds", fontSize = 18.sp)
                 Slider(
-                    value = currentValue.toFloat(),
-                    onValueChange = { onValueChanged(it.toInt()) },
+                    value = currentDelay.toFloat(),
+                    onValueChange = { currentDelay = it.toInt() },
                     valueRange = 0f..30f, //todo: max should come from config
                     steps = 0
                 )

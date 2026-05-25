@@ -88,7 +88,6 @@ fun ArcheryTrainerNavHost(/*navigationViewModel: NavigationViewModel*/) {
             AppDrawerContent(
                 currentRoute = navigationViewModel.backStack.lastOrNull(),
                 onNavigate = { navKey ->
-                    Timber.d("#### zzzzzzzzzzzzzzzz onNavigate")
                     navigationViewModel.navigateTo(navKey)
 //                    viewModel.backStack.clear(); viewModel.backStack.add(navKey)
                     scope.launch { drawerState.close() }

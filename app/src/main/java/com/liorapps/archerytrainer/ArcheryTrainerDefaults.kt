@@ -62,22 +62,4 @@ object ArcheryTrainerDefaults {
 
     /** Default (initial) delay in seconds. */
     const val DEFAULT_DELAY_SEC  = 5
-
-    // -------------------------------------------------------------------------
-    // Ring buffer sizing  (§3.1, §3.2)
-    // -------------------------------------------------------------------------
-
-    /**
-     * Native (DirectByteBuffer) data buffer size in bytes
-     * Rational: Should have been .../8. We divide by 6 in order to have a 33% safety margin
-     * E.g.: 30s × 20MBit/S / 6 ≈ 100MB.
-     */
-    const val BUFFER_SIZE_BYTES: Int = MAX_DELAY_SEC * MAX_BIT_RATE / 6
-
-    /**
-     * Metadata ring buffer capacity in number of NAL unit slots.
-     *
-     * Derivation: 30 s × 30 fps × 1.33 headroom ≈ 1200 slots.
-     */
-    const val MAX_FRAMES: Int = 1200
 }
