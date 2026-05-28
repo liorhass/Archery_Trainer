@@ -22,13 +22,20 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -36,6 +43,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshots.SnapshotStateList
@@ -43,6 +51,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontStyle
@@ -51,14 +60,18 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import java.time.Instant
-import java.time.LocalDateTime
-import java.time.ZoneId
-import java.util.Locale
+import com.liorapps.archerytrainer.db.ArrowEntity
+import com.liorapps.archerytrainer.screens.util.SimpleDismissibleItem
+import com.liorapps.archerytrainer.screens.util.getPreferredTextColorForBackground
+import com.liorapps.archerytrainer.ui.theme.AppTheme
+import kotlin.collections.chunked
+import kotlin.collections.forEachIndexed
 import kotlin.concurrent.atomics.AtomicLong
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.concurrent.atomics.incrementAndFetch
-import java.time.format.TextStyle as JavaTextStyle
+import kotlin.math.max
+import com.liorapps.archerytrainer.screens.util.formatDateTime
+import com.liorapps.archerytrainer.screens.util.formatTime
 
 // ── ID generator ──────────────────────────────────────────────────────────────
 @OptIn(ExperimentalAtomicApi::class)
@@ -71,7 +84,7 @@ fun EditShootingSessionTab(
     uiState: EditShootingSessionState,
     innerPadding: PaddingValues,
 ) {
-    // Collect one-shot events and spawn a floater per event.
+    // Collect one-shot events and spawn a floater per event
     val activeFloaters = remember { mutableStateListOf<FloatingLabel>() }
     LaunchedEffect(Unit) {
         viewModel.moreShotsEvents.collect { nNewShots ->
@@ -92,25 +105,80 @@ fun EditShootingSessionTab(
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        val sessionStartTime = formatSessionDateTime(uiState.sessionDateTimeUtc)
-        Text(
-            text = "Started at: $sessionStartTime",
-            style = MaterialTheme.typography.titleMedium,
-        )
+        SessionTitleSection(uiState)
 
-        // Arrow and score totals
-        StatsSection(uiState = uiState, activeFloaters)
+        // Total numbers of sets, shots and score of the session
+        SessionStatsSection(uiState = uiState, activeFloaters)
 
-        // Add-Set button grid
-        AddSetSection(
-            buttonValues = uiState.buttonValues,
-            onButtonTapped = viewModel::onAddSetButtonTapped,
-            onButtonLongPressed = viewModel::onSetButtonLongPressed,
-        )
+        if (uiState.shootingSetsHaveArrows) {
+            if (uiState.currentSetId != null) {
+                SetStatsSection(uiState = uiState)
+                AddNewArrowsToSetSection(
+                    onButtonTapped = viewModel::onAddArrowToCurrentSet,
+                    onButtonLongPressed = {},
+                )
+                if (uiState.currentSetArrowsSortedByScore.isNotEmpty()) {
+                    SetArrowsSection(
+                        uiState = uiState,
+                        onArrowClicked = viewModel::onArrowClicked,
+                        onArrowSwiped = viewModel::onArrowSwiped,
+                    )
+                }
+            }
+        } else {
+            // Add-Set button grid
+            AddSetWithoutArrowsSection(
+                buttonValues = uiState.buttonValuesForNumOfArrowsInASet,
+                onButtonTapped = viewModel::onAddSetWithNumOfShotsButtonTapped,
+                onButtonLongPressed = viewModel::onSetButtonLongPressed,
+            )
+        }
 
         // Optional session description / comment
         if (!uiState.comment.isBlank()) {
             SessionCommentSection(comment = uiState.comment)
+        }
+    }
+}
+
+@Composable
+private fun AddNewArrowsToSetSection(
+    onButtonTapped: (Int) -> Unit,
+    onButtonLongPressed: (Int) -> Unit,
+) {
+//    buttonValues.chunked(4).forEachIndexed { rowIndex, rowValues ->
+    val bgColors = arrayListOf<Color>(
+        AppTheme.colors.targetWhite, // 0
+        AppTheme.colors.targetWhite, // 1
+        AppTheme.colors.targetWhite, // 2
+        AppTheme.colors.targetBlack, // 3
+        AppTheme.colors.targetBlack, // 4
+        AppTheme.colors.targetBlue,  // 5
+        AppTheme.colors.targetBlue,  // 6
+        AppTheme.colors.targetRed,   // 7
+        AppTheme.colors.targetRed,   // 8
+        AppTheme.colors.targetGold,  // 9
+        AppTheme.colors.targetGold,  // 10
+        AppTheme.colors.targetGold,  // 11
+    )
+    listOf(0,1,2,3,4,5,6,7,8,9,10,11).chunked(4).forEachIndexed { rowIndex, rowValues ->
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            rowValues.forEachIndexed { colIndex, value ->
+                val globalIndex = rowIndex * 4 + colIndex
+                val bgColor = bgColors[globalIndex]
+                val textColor = getPreferredTextColorForBackground(bgColor)
+                ButtonWithNumber(
+                    modifier = Modifier.weight(1f),
+                    value = value,
+                    color = bgColor, // MaterialTheme.colorScheme.primaryContainer,
+                    textColor = textColor, // MaterialTheme.colorScheme.onPrimaryContainer,
+                    onTap = { onButtonTapped(value) },
+                    onLongPress = { onButtonLongPressed(globalIndex) },
+                )
+            }
         }
     }
 }
@@ -130,19 +198,7 @@ private fun SessionCommentSection(comment: String) {
                 .fillMaxWidth()
 //                .padding(horizontal = 12.dp, vertical = 8.dp),
         ) {
-            // ── Section header ────────────────────────────────────────────────────
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                HorizontalDivider(modifier = Modifier.weight(1f))
-                Text(
-                    text = "   Description   ",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-                HorizontalDivider(modifier = Modifier.weight(1f))
-            }
+            SectionDividerWithTitle("Description")
 
             Box(
                 modifier = Modifier
@@ -162,7 +218,19 @@ private fun SessionCommentSection(comment: String) {
 }
 
 @Composable
-private fun StatsSection(
+private fun SessionTitleSection(uiState: EditShootingSessionState) {
+    val sessionStartTime = remember(uiState.sessionDateTimeUtc) {
+        formatDateTime(uiState.sessionDateTimeUtc)
+    }
+
+    Text(
+        text = "Started at: $sessionStartTime",
+        style = MaterialTheme.typography.titleMedium,
+    )
+}
+
+@Composable
+private fun SessionStatsSection(
     uiState: EditShootingSessionState,
     activeFloaters: SnapshotStateList<FloatingLabel>,
 ) {
@@ -170,90 +238,102 @@ private fun StatsSection(
 //        modifier = Modifier.fillMaxWidth(),
 //        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
 //    ) {
-
     Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 0.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            // Total shots – always shown
-            Column {
-//                Text(
-//                    text = "🏹",
-//                    style = MaterialTheme.typography.titleMedium,
-//                )
-//                Spacer(modifier = Modifier.width(10.dp))
-//                Text(
-//                    text = "Sets:  ${uiState.sets.size}  (${uiState.scoredSets.size} with score)",
-//                    style = MaterialTheme.typography.bodyLarge,
-//                )
-//                Text(
-//                    text = "Shots:  ${uiState.totalArrows}  (${uiState.totalScoredArrows} with score)",
-//                    style = MaterialTheme.typography.bodyLarge,
-//                )
-//                Text(
-//                    text = "Total Score:  ${uiState.totalScore}  Average Score: ${"%.1f".format(uiState.averageScore)}",
-//                    style = MaterialTheme.typography.bodyLarge,
-//                )
-//                Row(
-//                    modifier = Modifier
-//                        .fillMaxWidth()
-//                        .padding(vertical = 0.dp)
-//                ) {
-//                    Text(
-//                        text = "Test",
-//                        modifier = Modifier.weight(40f),
-//                        fontWeight = FontWeight.Bold
-//                    )
-////        Text(
-////            text = col2,
-////            modifier = Modifier.weight(15f),
-////            fontWeight = FontWeight.Normal
-////        )
-//                    ScoreDisplay(
-//                        baseText = "${uiState.sets.size}",
-//                        activeFloaters = activeFloaters,
-//                        modifier = Modifier.weight(15f),
-//                    )
-////                    VerticalSlidingText(
-////                        targetText = col2,
-////                        modifier = Modifier.weight(15f),
-////                        fontWeight = FontWeight.Normal
-////                    )
-//                    Text(
-//                        text = "(${uiState.scoredSets.size} with score)",
-//                        modifier = Modifier.weight(45f),
-//                        fontWeight = FontWeight.Normal
-//                    )
-//                }
-
-                StatSectionRow("Sets:", "${uiState.sets.size}", "(${uiState.scoredSets.size} with score)")
-                StatSectionRowWithFloaters("Shots:", "${uiState.totalArrows}", "(${uiState.totalScoredArrows} with score)", activeFloaters)
-                if (uiState.hasAnyScore) {
-                    StatSectionRow("Total Score:", "${uiState.totalScore}", "")
-                    StatSectionRow("Avg. Score:", "%.1f".format(uiState.averageScore), "")
-                }
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 0.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        // Total shots – always shown
+        Column {
+            StatSectionRow("Sets:", "${uiState.sets.size}", "(${uiState.scoredSets.size} with score)")
+            StatSectionRowWithFloaters("Shots:", "${uiState.totalArrows}", "(${uiState.totalScoredArrows} with score)", activeFloaters)
+            if (uiState.hasAnyScore) {
+                StatSectionRow("Total Score:", "${uiState.totalScore}", "")
+                StatSectionRow("Avg. Score:", "%.1f".format(uiState.averageScore), "")
             }
+        } // "🎯"
+    }
+}
 
-//            // Total + average score – only when scoring is enabled AND at least one
-//            // set in the session carries a score.
-//            if (uiState.hasAnyScore) {
-//                Row(verticalAlignment = Alignment.CenterVertically) {
-//                    Text(
-//                        text = "🎯",
-//                        style = MaterialTheme.typography.titleMedium,
-//                    )
-//                    Spacer(modifier = Modifier.width(10.dp))
-//                    Text(
-//                        text = "Total Score:  ${uiState.totalScore}" +
-//                                "     Avg: ${"%.1f".format(uiState.averageScore)}",
-//                        style = MaterialTheme.typography.bodyLarge,
-//                    )
-//                }
-//            }
+@Composable
+private fun SetArrowsSection(
+    uiState: EditShootingSessionState,
+    onArrowClicked: (ArrowEntity) -> Unit,
+    onArrowSwiped: (ArrowEntity) -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 0.dp, vertical = 12.dp),
+//        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Spacer(Modifier.height(20.dp))
+        SectionDividerWithTitle("Arrows (${uiState.currentSetArrowsSortedByScore.size})")
+        Spacer(Modifier.height(8.dp))
+
+        uiState.currentSetArrowsSortedByScore.forEach { arrow ->
+            key(arrow.id) {
+                SwipeableArrowCard(
+                    arrow = arrow,
+                    onClick = onArrowClicked,
+                    onSwipeToDelete = { onArrowSwiped(arrow) }
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+            }
         }
-//    }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SwipeableArrowCard(
+    arrow: ArrowEntity,
+    onClick: (ArrowEntity) -> Unit,
+    onSwipeToDelete: () -> Unit,
+) {
+    SimpleDismissibleItem(
+        icon = { Icon(imageVector = Icons.Default.Delete, contentDescription = "Delete", tint = Color.White) },
+        onDelete = onSwipeToDelete,
+    ) {
+        ArrowCard(arrow, onClick = { onClick(arrow) } )
+    }
+}
+
+@Composable
+private fun SetStatsSection(
+    uiState: EditShootingSessionState,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 0.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        SectionDividerWithTitle("Add arrows to set (set time ${formatTime(uiState.currentSetDateTimeUtc)})")
+
+        val nShots = uiState.currentSetArrowsSortedByDateTime.size
+        val totalScore = uiState.currentSetArrowsSortedByDateTime.sumOf { it.score }
+        val avgScore = totalScore.toFloat() / max(nShots,1).toFloat()
+        StatSectionRow("Shots:", "${uiState.currentSetArrowsSortedByDateTime.size}", "")
+        StatSectionRow("Score:", "$totalScore", "(Avg: ${"%.2f".format(avgScore)})")
+    }
+}
+
+@Composable
+private fun SectionDividerWithTitle(text: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        HorizontalDivider(modifier = Modifier.weight(1f))
+        Text(
+            text = "   $text   ",
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.primary,
+        )
+        HorizontalDivider(modifier = Modifier.weight(1f))
+    }
 }
 
 @Composable
@@ -357,11 +437,11 @@ fun VerticalSlidingText(targetText: String, fontWeight: FontWeight?, modifier: M
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Add Set Section  (3 rows × 4 buttons)
+// Add set without arrows (3 rows × 4 buttons). User only specifies number of
+// shots in the set
 // ─────────────────────────────────────────────────────────────────────────────
-
 @Composable
-private fun AddSetSection(
+private fun AddSetWithoutArrowsSection(
     buttonValues: List<Int>,
     onButtonTapped: (Int) -> Unit,
     onButtonLongPressed: (Int) -> Unit,
@@ -369,18 +449,7 @@ private fun AddSetSection(
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
 
         // ── Section header ────────────────────────────────────────────────────
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            HorizontalDivider(modifier = Modifier.weight(1f))
-            Text(
-                text = "   Add Set   ",
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.primary,
-            )
-            HorizontalDivider(modifier = Modifier.weight(1f))
-        }
+        SectionDividerWithTitle("Add Set - Specify Number of Shots")
 
         // ── Button grid ───────────────────────────────────────────────────────
         buttonValues.chunked(4).forEachIndexed { rowIndex, rowValues ->
@@ -390,9 +459,11 @@ private fun AddSetSection(
             ) {
                 rowValues.forEachIndexed { colIndex, value ->
                     val globalIndex = rowIndex * 4 + colIndex
-                    SetButton(
+                    ButtonWithNumber(
                         modifier = Modifier.weight(1f),
                         value = value,
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        textColor = MaterialTheme.colorScheme.onPrimaryContainer,
                         onTap = { onButtonTapped(value) },
                         onLongPress = { onButtonLongPressed(globalIndex) },
                     )
@@ -413,15 +484,13 @@ private fun AddSetSection(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Set Button
-// ─────────────────────────────────────────────────────────────────────────────
-
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun SetButton(
+private fun ButtonWithNumber(
     modifier: Modifier = Modifier,
     value: Int,
+    color: Color,
+    textColor: Color,
     onTap: () -> Unit,
     onLongPress: () -> Unit,
 ) {
@@ -438,7 +507,7 @@ private fun SetButton(
                 onLongClick = onLongPress,
             ),
         shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.primaryContainer,
+        color = color,
         tonalElevation = 4.dp,
         shadowElevation = 2.dp,
     ) {
@@ -449,11 +518,54 @@ private fun SetButton(
             Text(
                 text = value.toString(),
                 style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                color = textColor,
             )
         }
     }
 }
+
+@Composable
+private fun ArrowCard(
+    arrow: ArrowEntity,
+    onClick: () -> Unit
+) {
+    Card(
+        onClick    = onClick,
+        modifier   = Modifier
+            .fillMaxWidth(),
+        shape      = MaterialTheme.shapes.extraSmall,// RectangleShape, // MaterialTheme.shapes.medium,
+        elevation  = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            val (circleColor, borderColor) = when (arrow.score) {
+                0, 1, 2 -> AppTheme.colors.targetWhite to Color.Black
+                3, 4 -> Color.Black to AppTheme.colors.targetWhite
+                5, 6 -> AppTheme.colors.targetBlue to AppTheme.colors.targetWhite
+                7, 8 -> AppTheme.colors.targetRed to AppTheme.colors.targetWhite
+                else -> AppTheme.colors.targetGold to AppTheme.colors.targetWhite
+            }
+            Text(text = " ➳  Score:  ${arrow.score}")
+            Spacer(modifier = Modifier.weight(1f))
+            Box(
+                modifier = Modifier
+                    .size(24.dp)
+                    .background(color = circleColor, shape = CircleShape)
+//                    .border(
+//                        width = 1.dp,
+//                        color = borderColor,
+//                        shape = CircleShape
+//                    )
+            )
+        }
+    }
+}
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Dialogs
@@ -668,10 +780,7 @@ private fun AddingSetTooSoonDialog(
 }
 
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Date / Time Helper
-// ─────────────────────────────────────────────────────────────────────────────
-
+// todo: 2brm
 /**
  * Formats a UTC epoch-millisecond value as  "Mon, 14/5/26 14:33"
  * using the device's local time zone.
@@ -679,16 +788,32 @@ private fun AddingSetTooSoonDialog(
  * Note: `JavaTextStyle` is an alias for `java.time.format.TextStyle`
  * to avoid clashing with Compose's own `TextStyle`.
  */
-fun formatSessionDateTime(utcMillis: Long): String {
-    val ldt = LocalDateTime.ofInstant(
-        Instant.ofEpochMilli(utcMillis),
-        ZoneId.systemDefault(),
-    )
-    val dayName = ldt.dayOfWeek.getDisplayName(JavaTextStyle.SHORT, Locale.getDefault())
-    val day     = ldt.dayOfMonth
-    val month   = ldt.monthValue
-    val year    = ldt.year % 100                              // e.g. 2026 → 26
-    val hour    = ldt.hour.toString().padStart(2, '0')
-    val minute  = ldt.minute.toString().padStart(2, '0')
-    return "$dayName, $day/$month/$year $hour:$minute"
-}
+//fun formatSessionDateTime(utcMillis: Long): String {
+//    val ldt = LocalDateTime.ofInstant(
+//        Instant.ofEpochMilli(utcMillis),
+//        ZoneId.systemDefault(),
+//    )
+//    val dayName = ldt.dayOfWeek.getDisplayName(JavaTextStyle.SHORT, Locale.getDefault())
+//    val day     = ldt.dayOfMonth
+//    val month   = ldt.monthValue
+//    val year    = ldt.year % 100                              // e.g. 2026 → 26
+//    val hour    = ldt.hour.toString().padStart(2, '0')
+//    val minute  = ldt.minute.toString().padStart(2, '0')
+//    return "$dayName, $day/$month/$year $hour:$minute"
+//}
+
+/**
+ * Formats a UTC epoch-millisecond value as  "14:33" using the device's local time zone.
+ *
+ * Note: `JavaTextStyle` is an alias for `java.time.format.TextStyle`
+ * to avoid clashing with Compose's own `TextStyle`.
+ */
+//fun formatTime(utcMillis: Long): String {
+//    val ldt = LocalDateTime.ofInstant(
+//        Instant.ofEpochMilli(utcMillis),
+//        ZoneId.systemDefault(),
+//    )
+//    val hour    = ldt.hour.toString().padStart(2, '0')
+//    val minute  = ldt.minute.toString().padStart(2, '0')
+//    return "$hour:$minute"
+//}

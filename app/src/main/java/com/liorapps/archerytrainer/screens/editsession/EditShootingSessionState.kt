@@ -1,5 +1,6 @@
 package com.liorapps.archerytrainer.screens.editsession
 
+import com.liorapps.archerytrainer.db.ArrowEntity
 import com.liorapps.archerytrainer.db.ShootingSetWithSession
 
 data class EditShootingSessionState(
@@ -8,8 +9,12 @@ data class EditShootingSessionState(
     val sessionDateTimeUtc: Long = System.currentTimeMillis(),
     val comment: String = "",
     val sets: List<ShootingSetWithSession> = emptyList(),
+    val currentSetId: Long? = null,
+    val currentSetDateTimeUtc: Long = 0,
+    val currentSetArrowsSortedByDateTime: List<ArrowEntity> = emptyList(),
+    val currentSetArrowsSortedByScore: List<ArrowEntity> = emptyList(),
 
-    val buttonValues: List<Int> = EditShootingSessionViewModel.DEFAULT_BUTTON_VALUES, // Button grid configuration (12 values)
+    val buttonValuesForNumOfArrowsInASet: List<Int> = EditShootingSessionViewModel.DEFAULT_BUTTON_VALUES, // Button grid configuration (12 values)
     val showEditCommentDialog: Boolean = false,
     val commentDraft: String = "",
     val secSinceLastAddSet: Int = -1,
@@ -21,6 +26,7 @@ data class EditShootingSessionState(
     val editingButtonIndex: Int = -1,
     val buttonValueDraft: String = "",
 
+    val shootingSetsHaveArrows: Boolean = false,
     val shootingSetsHaveScore: Boolean = false,
 
     val activeTab: ActiveTab = ActiveTab.EDIT_SESSION,

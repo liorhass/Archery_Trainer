@@ -1,5 +1,6 @@
 package com.liorapps.archerytrainer.screens.importexport
 
+import android.adservices.adid.AdId
 import kotlinx.serialization.Serializable
 
 // Bump this ONLY when the structure of the JSON file itself changes
@@ -43,6 +44,14 @@ data class ShootingSetDto(
     val score: Int = -1
 )
 
+@Serializable
+data class ArrowDto(
+    val id: Long,            // original DB id — used only to reconstruct FKs on import
+    val shootingSetId: Long, // original FK — remapped on import
+    val score: Int,
+    val dateTimeUtc: Long,
+)
+
 // ---------------------------------------------------------------------------
 // Root export envelope
 // ---------------------------------------------------------------------------
@@ -51,5 +60,6 @@ data class ShootingSetDto(
 data class DatabaseExportDto(
     val metadata: ExportMetadata,
     val shootingSessions: List<ShootingSessionDto>,
-    val shootingSets: List<ShootingSetDto>
+    val shootingSets: List<ShootingSetDto>,
+    val arrows: List<ArrowDto>,
 )

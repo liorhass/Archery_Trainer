@@ -16,5 +16,9 @@ fun toLocalDateTime(epochMs: Long): LocalDateTime =
     LocalDateTime.ofInstant(Instant.ofEpochMilli(epochMs), ZoneId.systemDefault())
 
 fun formatDate(epochMs: Long): String = DATE_FORMATTER.format(toLocalDateTime(epochMs))
+
+/** Formats a UTC epoch-millisecond value as  "14:33" using the device's local time zone */
 fun formatTime(epochMs: Long): String = TIME_FORMATTER.format(toLocalDateTime(epochMs))
+
+/** Formats a UTC epoch-millisecond value as  "Mon, 14/5/26 14:33" using the device's local time zone */
 fun formatDateTime(epochMs: Long): String = DATE_TIME_FORMATTER.format(toLocalDateTime(epochMs))

@@ -22,8 +22,10 @@ interface ShootingSetDao {
 
     // ── Read ─────────────────────────────────────────────────────────────────
 
+    /** Get the raw shooting_sets table data. The number-of-shots and score are taken as-is,
+     * not taking arrows into account. Should only be used for DB export */
     @Query("SELECT * FROM shooting_sets")
-    suspend fun getAllShootingSets(): List<ShootingSetEntity>
+    suspend fun getAllShootingSetsRawData(): List<ShootingSetEntity>
 
 //    /**
 //     * Returns all shootingSets, ordered by date-time descending, each carrying its
@@ -50,7 +52,7 @@ interface ShootingSetDao {
      * Returns all shootingSets, ordered by date-time descending, each carrying its
      * parent shootingSession's date-time and comment.
      *
-     * numberOfShots = stored numberOfShots + number of arrows in the set.
+     * numberOfShots = number of arrows in the set when arrows exist, otherwise the stored numberOfShots.
      * score         = SUM of arrow scores when arrows exist, otherwise the stored score.
      *
      * Emits a new list whenever any shootingSet, shootingSession, or arrow changes.
@@ -61,7 +63,7 @@ interface ShootingSetDao {
             s.id,
             s.shootingSessionId,
             s.dateTimeUtc,
-            s.numberOfShots + COUNT(a.id)                                   AS numberOfShots,
+            CASE WHEN COUNT(a.id) > 0 THEN COUNT(a.id) ELSE s.numberOfShots END AS numberOfShots,
             CASE WHEN COUNT(a.id) > 0 THEN SUM(a.score) ELSE s.score END   AS score,
             e.dateTimeUtc   AS shootingSessionDateTimeUtc,
             e.comment       AS shootingSessionComment

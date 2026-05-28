@@ -74,6 +74,13 @@ data class CustomColors(
     val singleFrameSliderThumbHighlight: Color,
     val singleFrameSliderThumbGlow: Color,
     val webLink: Color,
+    val targetWhite: Color,
+    val targetBlack: Color,
+    val targetBlue: Color,
+    val targetRed: Color,
+    val targetGold: Color,
+    val textOnLightBg: Color,
+    val textOnDarkBg: Color,
 )
 val LocalCustomColors = staticCompositionLocalOf {
     CustomColors(
@@ -88,6 +95,13 @@ val LocalCustomColors = staticCompositionLocalOf {
         singleFrameSliderThumbHighlight = Color.Unspecified,
         singleFrameSliderThumbGlow = Color.Unspecified,
         webLink = Color.Unspecified,
+        targetWhite = Color.Unspecified,
+        targetBlack = Color.Unspecified,
+        targetBlue = Color.Unspecified,
+        targetRed = Color.Unspecified,
+        targetGold = Color.Unspecified,
+        textOnLightBg = Color.Unspecified,
+        textOnDarkBg = Color.Unspecified,
     )
 }
 private val LightCustomColors = CustomColors(
@@ -102,6 +116,13 @@ private val LightCustomColors = CustomColors(
     singleFrameSliderThumbHighlight = Color(0xFFFF7A73),
     singleFrameSliderThumbGlow = Color(0x44FF3B30),
     webLink = Color(0xFF0044CC),
+    targetWhite = Color(0xFFDDDDDD),
+    targetBlack = Color(0xFF333333),
+    targetBlue = Color(0xFF0044CC),
+    targetRed = Color(0xFFB00020),
+    targetGold = Color(0xFFFFEB3B),
+    textOnLightBg = Color(0xFF333333),
+    textOnDarkBg = Color(0xFFCCCCCC),
 )
 private val DarkCustomColors = CustomColors(
     success = Color(0xFF81C784),
@@ -115,6 +136,13 @@ private val DarkCustomColors = CustomColors(
     singleFrameSliderThumbHighlight = Color(0xFFFF7A73),
     singleFrameSliderThumbGlow = Color(0x44FF3B30),
     webLink = Color(0xFF66B3FF),
+    targetWhite = Color(0xFFDDDDDD),
+    targetBlack = Color(0xFF333333),
+    targetBlue = Color(0xFF0044CC),
+    targetRed = Color(0xFFB00020),
+    targetGold = Color(0xFFFFEB3B),
+    textOnLightBg = Color(0xFF333333),
+    textOnDarkBg = Color(0xFFCCCCCC),
 )
 
 @Composable

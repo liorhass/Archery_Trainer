@@ -47,6 +47,7 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
             shootingSessionButtonValues = prefs[SHOOTING_SESSION_BUTTON_VALUES_KEY] ?: "1,2,3,4,5,6,7,8,9,10,11,12",
             dummyFloat  = prefs[DUMMY_FLOAT_KEY] ?: 77.33f,
 
+            shootingSetsHaveArrows  = prefs[SHOOTING_SETS_HAVE_ARROWS_KEY] ?: false,
             shootingSetsHaveScores  = prefs[SHOOTING_SETS_HAVE_SCORES_KEY] ?: false,
             timeBetweenSetsForTooSoonWarn = prefs[TIME_BETWEEN_SETS_FOR_TOO_SOON_WARN_KEY] ?: 60, // In sec
         )
@@ -64,8 +65,12 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
         val shootingSessionButtonValues: String = "",
         val dummyFloat: Float = 33.77f,
 
+
+        val shootingSetsHaveArrows: Boolean = false,
+
         /** When true, tapping an Add-Set button opens a dialog to enter a score.
-         * When false, a Set is inserted immediately with score = -1 (no score) */
+         * When false, a Set is inserted immediately with score = -1 (no score)
+         * This is only relevant if shootingSetsHaveArrows == false */
         val shootingSetsHaveScores: Boolean = false,
         val timeBetweenSetsForTooSoonWarn: Int = 60,
     )
@@ -79,6 +84,7 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
         val BIT_RATE_KEY = intPreferencesKey("bit_rate")
         val SHOOTING_SESSION_BUTTON_VALUES_KEY = stringPreferencesKey("ssbvk")
         val DUMMY_FLOAT_KEY = floatPreferencesKey("dfk")
+        val SHOOTING_SETS_HAVE_ARROWS_KEY = booleanPreferencesKey("sshak")
         val SHOOTING_SETS_HAVE_SCORES_KEY = booleanPreferencesKey("sshsk")
         val TIME_BETWEEN_SETS_FOR_TOO_SOON_WARN_KEY = intPreferencesKey("tbsftswk")
     }
@@ -94,6 +100,7 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
             prefs[BIT_RATE_KEY]    = newSettings.bitRate
             prefs[SHOOTING_SESSION_BUTTON_VALUES_KEY]    = newSettings.shootingSessionButtonValues
             prefs[DUMMY_FLOAT_KEY]    = newSettings.dummyFloat
+            prefs[SHOOTING_SETS_HAVE_ARROWS_KEY] = newSettings.shootingSetsHaveArrows
             prefs[SHOOTING_SETS_HAVE_SCORES_KEY] = newSettings.shootingSetsHaveScores
             prefs[TIME_BETWEEN_SETS_FOR_TOO_SOON_WARN_KEY] = newSettings.timeBetweenSetsForTooSoonWarn
         }

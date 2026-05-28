@@ -17,6 +17,9 @@ interface ArrowDao {
     @Delete
     suspend fun delete(arrow: ArrowEntity)
 
+    @Query("SELECT * FROM arrows")
+    suspend fun getAllArrows(): List<ArrowEntity>
+
     /** Returns all arrows that belong to the given shootingSet, ordered by
      * date-time descending (newest first).
      * Emits a new list whenever any arrow in that set changes */
@@ -28,5 +31,18 @@ interface ArrowDao {
         ORDER BY dateTimeUtc DESC
     """
     )
-    fun getArrowsForShootingSet(shootingSetId: Long): Flow<List<ArrowEntity>>
+    fun getArrowsForShootingSetSortedByDateTime(shootingSetId: Long): Flow<List<ArrowEntity>>
+
+    /** Returns all arrows that belong to the given shootingSet, ordered by
+     * score ascending (highest score first).
+     * Emits a new list whenever any arrow in that set changes */
+    @Query(
+        """
+        SELECT *
+        FROM arrows
+        WHERE shootingSetId = :shootingSetId
+        ORDER BY score DESC
+    """
+    )
+    fun getArrowsForShootingSetSortedByScore(shootingSetId: Long): Flow<List<ArrowEntity>>
 }

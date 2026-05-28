@@ -46,6 +46,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
@@ -142,10 +143,18 @@ private fun SettingsSection(
             SettingsSectionHeader(title = "Shooting Sessions")
 
             SettingsBooleanItem(
+                title = "Specify Individual Arrows",
+                description = "When adding a set, specify individual arrows",
+                checked = settings.shootingSetsHaveArrows,
+                onCheckedChange = { onSettingsChange(settings.copy(shootingSetsHaveArrows = it)) },
+            )
+
+            SettingsBooleanItem(
                 title = "Give Sets Scores",
-                description = "Specify for each set a total score",
+                description = "For each set specify a total score",
                 checked = settings.shootingSetsHaveScores,
                 onCheckedChange = { onSettingsChange(settings.copy(shootingSetsHaveScores = it)) },
+                enabled = ! settings.shootingSetsHaveArrows
             )
 
             SettingsStringItem(
@@ -251,6 +260,7 @@ fun SettingsBooleanItem(
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
+    enabled: Boolean = true,
 ) {
     Row(
         modifier = modifier
@@ -258,8 +268,10 @@ fun SettingsBooleanItem(
             .toggleable(
                 value = checked,
                 onValueChange = onCheckedChange,
+                enabled = enabled,
                 role = Role.Checkbox
             )
+            .alpha(if (enabled) 1f else 0.38f)
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -282,7 +294,8 @@ fun SettingsBooleanItem(
 //        )
         Switch(
             checked = checked,
-            onCheckedChange = null // null because the Row handles the click logic
+            onCheckedChange = null, // null because the Row handles the click logic
+            enabled = enabled,      // Disable the switch visually
         )
     }
 }

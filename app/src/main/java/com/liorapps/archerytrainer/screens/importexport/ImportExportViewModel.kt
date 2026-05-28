@@ -14,6 +14,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.room.withTransaction
 import com.liorapps.archerytrainer.BuildConfig
 import com.liorapps.archerytrainer.db.ATDatabase
+import com.liorapps.archerytrainer.db.ArrowEntity
 import com.liorapps.archerytrainer.db.ShootingSessionEntity
 import com.liorapps.archerytrainer.db.ShootingSetEntity
 import kotlinx.coroutines.Dispatchers
@@ -45,7 +46,8 @@ sealed class DbImportResult {
      *  @param setsImported     Number of ShootingSet rows inserted */
     data class Success(
         val sessionsImported: Int,
-        val setsImported: Int
+        val setsImported: Int,
+        val arrowsImported: Int,
     ) : DbImportResult()
 
     /** The file's exportFormatVersion is higher than [CURRENT_EXPORT_FORMAT_VERSION].
@@ -76,6 +78,7 @@ class ImportExportViewModel(application: Application) : AndroidViewModel(applica
     val db: ATDatabase = ATDatabase.getInstance(application)
     val sessionDao     = db.shootingSessionDao()
     val setDao         = db.shootingSetDao()
+    val arrowDao       = db.arrowDao()
 
     /** User tapped "Export to File". ViewModel runs the export and updates [ImportExportUiState.exportResult]. */
     fun onExportClicked() {
@@ -132,7 +135,8 @@ class ImportExportViewModel(application: Application) : AndroidViewModel(applica
     suspend fun exportDatabase(): DbExportResult = withContext(Dispatchers.IO) {
         try {
             val sessions   = sessionDao.getAllShootingSessions()
-            val sets       = setDao.getAllShootingSets()
+            val sets       = setDao.getAllShootingSetsRawData()
+            val arrows     = arrowDao.getAllArrows()
 
             val exportDto = DatabaseExportDto(
                 metadata = ExportMetadata(
@@ -142,7 +146,8 @@ class ImportExportViewModel(application: Application) : AndroidViewModel(applica
                     appVersion = BuildConfig.VERSION_NAME
                 ),
                 shootingSessions = sessions.map { it.toDto() },
-                shootingSets = sets.map { it.toDto() }
+                shootingSets = sets.map { it.toDto() },
+                arrows = arrows.map { it.toDto() },
             )
 
             val jsonString = exportJson.encodeToString(exportDto)
@@ -207,7 +212,7 @@ class ImportExportViewModel(application: Application) : AndroidViewModel(applica
     suspend fun importDatabase(uri: Uri): DbImportResult = withContext(Dispatchers.IO) {
         try {
             // 1. Read the file
-            val resolver = getApplication<android.app.Application>().contentResolver
+            val resolver = getApplication<Application>().contentResolver
             val jsonString = resolver.openInputStream(uri)
                 ?.use { stream -> stream.bufferedReader(Charsets.UTF_8).readText() }
                 ?: throw IOException("Could not open input stream for $uri")
@@ -215,7 +220,7 @@ class ImportExportViewModel(application: Application) : AndroidViewModel(applica
             // 2. Parse
             val exportDto = exportJson.decodeFromString<DatabaseExportDto>(jsonString)
 
-            // 3. Guard against files produced by a future, incompatible app version
+            // 3. Guard against files produced by a future (incompatible) app version
             if (exportDto.metadata.exportFormatVersion > CURRENT_EXPORT_FORMAT_VERSION) {
                 return@withContext DbImportResult.UnsupportedFormatVersion(
                     exportDto.metadata.exportFormatVersion
@@ -226,10 +231,12 @@ class ImportExportViewModel(application: Application) : AndroidViewModel(applica
             //    failure leaves the database completely untouched
             var sessionsImported = 0
             var setsImported = 0
+            var arrowsImported = 0
 
             db.withTransaction {
                 // Map: original id in the JSON → newly assigned id in this database
                 val sessionIdMap = mutableMapOf<Long, Long>()
+                val setIdMap = mutableMapOf<Long, Long>()
 
                 for (dto in exportDto.shootingSessions) {
                     val newId = sessionDao.insertShootingSession(
@@ -251,20 +258,40 @@ class ImportExportViewModel(application: Application) : AndroidViewModel(applica
                                     "The export file may be corrupt."
                         )
 
-                    setDao.insertShootingSet(
+                    val newId = setDao.insertShootingSet(
                         ShootingSetEntity(
-                            id = 0,                             // auto-generated
+                            id = 0,                             // 0 -> Room auto-generates
                             shootingSessionId = remappedSessionId,
                             dateTimeUtc = dto.dateTimeUtc,
                             numberOfShots = dto.numberOfShots,
                             score = dto.score
                         )
                     )
+                    setIdMap[dto.id] = newId
                     setsImported++
+                }
+
+                for (dto in exportDto.arrows) {
+                    val remappedSetId = setIdMap[dto.shootingSetId]
+                        ?: throw IllegalStateException(
+                            "Arrow (original id=${dto.id}) references " +
+                                    "unknown set id ${dto.shootingSetId}. " +
+                                    "The export file may be corrupt."
+                        )
+
+                    arrowDao.insert(
+                        ArrowEntity(
+                            id = 0,                             // 0 -> Room auto-generates
+                            shootingSetId = remappedSetId,
+                            score = dto.score,
+                            dateTimeUtc = dto.dateTimeUtc,
+                        )
+                    )
+                    arrowsImported++
                 }
             }
 
-            DbImportResult.Success(sessionsImported, setsImported)
+            DbImportResult.Success(sessionsImported, setsImported, arrowsImported)
         } catch (e: Exception) {
             DbImportResult.Failure(e)
         }
@@ -287,6 +314,13 @@ class ImportExportViewModel(application: Application) : AndroidViewModel(applica
         dateTimeUtc = dateTimeUtc,
         numberOfShots = numberOfShots,
         score = score
+    )
+
+    private fun ArrowEntity.toDto() = ArrowDto(
+        id = id,
+        shootingSetId = shootingSetId,
+        score = score,
+        dateTimeUtc = dateTimeUtc
     )
 
     /** Produces a filesystem-safe timestamp string, e.g. "2025-03-01_14-05-30". */

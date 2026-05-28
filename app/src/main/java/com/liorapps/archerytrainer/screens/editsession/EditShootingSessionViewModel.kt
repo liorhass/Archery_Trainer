@@ -7,10 +7,12 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.liorapps.archerytrainer.ScrLockManagerImpl
 import com.liorapps.archerytrainer.db.ATDatabase
+import com.liorapps.archerytrainer.db.ArrowEntity
 import com.liorapps.archerytrainer.db.ShootingSessionEntity
 import com.liorapps.archerytrainer.db.ShootingSetEntity
 import com.liorapps.archerytrainer.db.ShootingSetWithSession
 import com.liorapps.archerytrainer.screens.settings.SettingsRepository
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -39,6 +41,7 @@ class EditShootingSessionViewModel (
     private val db = ATDatabase.getInstance(application)
     private val shootingSessionDao = db.shootingSessionDao()
     private val shootingSetDao = db.shootingSetDao()
+    private val arrowDao = db.arrowDao()
     val settingsFlow: StateFlow<SettingsRepository.Settings> = settingsRepo.settingsFlow
         .stateIn(viewModelScope, SharingStarted.Lazily, SettingsRepository.Settings())
     private val _uiStateFlow = MutableStateFlow(
@@ -46,7 +49,10 @@ class EditShootingSessionViewModel (
     )
     val uiStateFlow: StateFlow<EditShootingSessionState> =
         combine(_uiStateFlow, settingsFlow) { uiState, settings ->
-            uiState.copy(shootingSetsHaveScore = settings.shootingSetsHaveScores)
+            uiState.copy(
+                shootingSetsHaveArrows = settings.shootingSetsHaveArrows,
+                shootingSetsHaveScore = settings.shootingSetsHaveScores
+            )
         }.stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
@@ -79,7 +85,7 @@ class EditShootingSessionViewModel (
                     ?: DEFAULT_BUTTON_VALUES
             }
             .collect { values ->
-                _uiStateFlow.update { it.copy(buttonValues = values) }
+                _uiStateFlow.update { it.copy(buttonValuesForNumOfArrowsInASet = values) }
             }
         }
     }
@@ -99,11 +105,39 @@ class EditShootingSessionViewModel (
         }
     }
 
+    private var setsObserverJob: Job? = null
     private fun observeSets(sessionId: Long) {
-        viewModelScope.launch {
+        setsObserverJob?.cancel() // Cancel previous observer
+        setsObserverJob = viewModelScope.launch {
             shootingSetDao
                 .getShootingSetsForShootingSession(sessionId)
                 .collect { sets -> _uiStateFlow.update { it.copy(sets = sets) } }
+        }
+    }
+
+    // Simple wrapper to pass data cleanly through the flow chain
+    data class ArrowsListsWrapper(
+        val listSortedByDateTime: List<ArrowEntity>,
+        val listSortedByScore:    List<ArrowEntity>
+    )
+    private var arrowsObserverJob: Job? = null
+    // There are two flows emitting lists of arrows by the DB (two different sort criteria). Since
+    // they always change together, we collect them in a single coroutine and use combine() to
+    // change the uiState only once
+    private fun observeArrows(setId: Long) {
+        arrowsObserverJob?.cancel() // Cancel previous observer
+        arrowsObserverJob = viewModelScope.launch {
+            combine(
+                arrowDao.getArrowsForShootingSetSortedByDateTime(setId),
+                arrowDao.getArrowsForShootingSetSortedByScore(setId)
+            ) { listSortedByDateTime, listSortedByScore ->
+                ArrowsListsWrapper(listSortedByDateTime, listSortedByScore)
+            }.collect { combinedFlows ->
+                _uiStateFlow.update { it.copy(
+                    currentSetArrowsSortedByDateTime = combinedFlows.listSortedByDateTime,
+                    currentSetArrowsSortedByScore = combinedFlows.listSortedByScore
+                ) }
+            }
         }
     }
 
@@ -131,8 +165,8 @@ class EditShootingSessionViewModel (
     }
 
     var timeOfPreviousAddSet = 0L  // To prevent adding sets in quick succession
-    /** Add-Set button */
-    fun onAddSetButtonTapped(arrowCount: Int) {
+    /** Add-Set-with-arrows-number button */
+    fun onAddSetWithNumOfShotsButtonTapped(arrowCount: Int) {
         val now = System.currentTimeMillis()
         when {
             settingsFlow.value.shootingSetsHaveScores -> {
@@ -147,7 +181,8 @@ class EditShootingSessionViewModel (
             }
             ((settingsFlow.value.timeBetweenSetsForTooSoonWarn > 0) &&
                     ((now - timeOfPreviousAddSet)/1000 < settingsFlow.value.timeBetweenSetsForTooSoonWarn)) -> {
-                // Open an "Are you sure?" dialog; the set will be inserted after the user confirms. See onAddingSetTooSoonConfirmed()
+                // Open an "Are you sure?" dialog; the set will be inserted after the user confirms.
+                // See onAddingSetTooSoonConfirmed()
                 val secSinceLastAddSet = ((now - timeOfPreviousAddSet) / 1000).toInt()
                 _uiStateFlow.update {
                     it.copy(
@@ -163,21 +198,50 @@ class EditShootingSessionViewModel (
         }
     }
 
-    private suspend fun addSet(arrowCount: Int, score: Int) {
+    /** Add-Set button (adding an empty set) */
+    fun onAddSetButtonTapped() {
+        val now = System.currentTimeMillis()
+        when {
+            ((settingsFlow.value.timeBetweenSetsForTooSoonWarn > 0) &&
+                    ((now - timeOfPreviousAddSet)/1000 < settingsFlow.value.timeBetweenSetsForTooSoonWarn)) -> {
+                // Open an "Are you sure?" dialog; the set will be inserted after the user confirms.
+                // See onAddingSetTooSoonConfirmed()
+                val secSinceLastAddSet = ((now - timeOfPreviousAddSet) / 1000).toInt()
+                _uiStateFlow.update {
+                    it.copy(
+                        showAddingSetTooSoonDialog = true,
+                        secSinceLastAddSet = secSinceLastAddSet,
+                        pendingArrowCount = 0
+                    )
+                }
+            }
+            else -> {
+                viewModelScope.launch { addSet(arrowCount = 0, score = -1) }
+            }
+        }
+    }
+
+    /** returns the new set's ID */
+    private suspend fun addSet(arrowCount: Int, score: Int): Long {
 //        Timber.d("addSet() arrowCount=$arrowCount, score=$score")
         // session is not created until the first set is created
         val sessionId = ensureSessionCreated()
-//        Timber.d("addSet() sessionId=$sessionId")
-        _moreShotsEventChannel.send(arrowCount)   // fires an event for the floater "+N"
-        shootingSetDao.insertShootingSet(
+        val now = System.currentTimeMillis()
+        val setId = shootingSetDao.insertShootingSet(
             ShootingSetEntity(
                 shootingSessionId = sessionId,
-                dateTimeUtc = System.currentTimeMillis(),
+                dateTimeUtc = now,
                 numberOfShots = arrowCount,
                 score = score,
             )
         )
+        _uiStateFlow.update { it.copy( currentSetId = setId, currentSetDateTimeUtc = now ) }
+        if (arrowCount > 0) {
+            _moreShotsEventChannel.send(arrowCount) // fires an event for the floater "+N"
+        }
+        observeArrows(setId)
         timeOfPreviousAddSet = System.currentTimeMillis()
+        return setId
     }
 
     // Enter-Score dialog
@@ -265,7 +329,7 @@ class EditShootingSessionViewModel (
             it.copy(
                 showEditButtonValueDialog = true,
                 editingButtonIndex = index,
-                buttonValueDraft = it.buttonValues[index].toString(),
+                buttonValueDraft = it.buttonValuesForNumOfArrowsInASet[index].toString(),
             )
         }
     }
@@ -279,13 +343,13 @@ class EditShootingSessionViewModel (
             .toIntOrNull()?.takeIf { it in 1..999 } ?: return
         val index = _uiStateFlow.value.editingButtonIndex.takeIf { it >= 0 } ?: return
 
-        val updated = _uiStateFlow.value.buttonValues
+        val updated = _uiStateFlow.value.buttonValuesForNumOfArrowsInASet
             .toMutableList()
             .also { it[index] = newValue }
 
         _uiStateFlow.update {
             it.copy(
-                buttonValues = updated,
+                buttonValuesForNumOfArrowsInASet = updated,
                 showEditButtonValueDialog = false,
                 editingButtonIndex = -1,
                 buttonValueDraft = "",
@@ -327,6 +391,32 @@ class EditShootingSessionViewModel (
     fun onDeleteSetConfirmed(set: ShootingSetWithSession) {
         viewModelScope.launch {
             shootingSetDao.deleteShootingSetById(set.id)
+        }
+    }
+
+    fun onAddArrowToCurrentSet(score: Int) {
+        Timber.d("#### onAddArrowToCurrentSet() score=$score")
+        val currentSetId = _uiStateFlow.value.currentSetId
+        if (currentSetId == null) {
+            Timber.e("#### onAddArrowToCurrentSet() currentSetId=null")
+            return
+        }
+        viewModelScope.launch {
+            arrowDao.insert( ArrowEntity(
+                shootingSetId = currentSetId,
+                dateTimeUtc = System.currentTimeMillis(),
+                score = score,
+            ))
+        }
+    }
+
+    fun onArrowClicked(arrow: ArrowEntity) {
+        Timber.d("#### onArrowClicked() arrowId=${arrow.id}")
+    }
+    fun onArrowSwiped(arrow: ArrowEntity) {
+        Timber.d("#### onArrowSwiped() arrowId=${arrow.id}")
+        viewModelScope.launch {
+            arrowDao.delete(arrow)
         }
     }
 

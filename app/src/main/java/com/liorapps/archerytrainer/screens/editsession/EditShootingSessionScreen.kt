@@ -3,11 +3,13 @@ package com.liorapps.archerytrainer.screens.editsession
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.MobileOff
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -43,6 +45,15 @@ fun EditShootingSessionScreen(
                 viewModel = viewModel,
                 uiState = uiState,
             )
+        },
+        floatingActionButton = {
+            if (uiState.activeTab == ActiveTab.EDIT_SESSION) {
+                ExtendedFloatingActionButton(
+                    onClick = viewModel::onAddSetButtonTapped,
+                    icon = { Icon(Icons.Default.Add, contentDescription = "New Set") },
+                    text = { Text(text = "New Set") }, // Dedicated text parameter
+                )
+            }
         },
     ) { innerPadding ->
         if (uiState.activeTab == ActiveTab.EDIT_SESSION) {
